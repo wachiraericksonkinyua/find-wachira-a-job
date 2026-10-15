@@ -1,0 +1,10 @@
+# Python & Backend
+venv/
+.venv/
+__pycache__/
+.env
+
+# React & Frontend
+node_modules/
+dist/
+.env.local
