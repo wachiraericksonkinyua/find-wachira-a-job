@@ -1,0 +1,42 @@
+@import "tailwindcss";
+:root {
+  --bg: #0A0F1F;
+  --card: #101A33;
+  --ink: #E6F1FF;
+  --mute: #8FA6C8;
+  --line: #22345E;
+  --ugali: #19E3FF;
+  --leaf: #3DF5A6;
+  --chili: #FF4D8D;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: "Rajdhani", sans-serif;
+  /* Creates a subtle blueprint grid background */
+  background-image: 
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-attachment: fixed;
+}
+
+/* Custom cut-corner box design from the build guide */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% 100%,
+    14px 100%,
+    0 calc(100% - 14px)
+  );
+}
+
+.font-orbitron { font-family: "Orbitron", sans-serif; }
+.font-mono-tech { font-family: "Share Tech Mono", monospace; }
+.font-pixel { font-family: "Press Start 2P", monospace; }
