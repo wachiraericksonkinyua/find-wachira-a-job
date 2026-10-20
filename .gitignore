@@ -3,6 +3,7 @@ venv/
 .venv/
 __pycache__/
 .env
+backend/app/pet_state.json
 
 # React & Frontend
 node_modules/
