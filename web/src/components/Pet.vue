@@ -1,5 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { usePetStore } from '../stores/pet'
 
 defineProps({
   professionalMode: {
@@ -8,11 +10,21 @@ defineProps({
   }
 })
 
+const pet = usePetStore()
+const { desperation, label, mood, quip, loading, error } = storeToRefs(pet)
+
 const shooed = ref(false)
 const menuOpen = ref(false)
 const cornerIndex = ref(0)
 const flipRight = ref(false)
-const desperation = ref(68)
+
+// One draft note per action that needs it. "book" has no note, so it is absent.
+const notes = ref({
+  link: '',
+  lead: '',
+  intro: '',
+  know_person: ''
+})
 
 // Override sprite and quip when mouse interacts
 const activeSprite = ref(null)
@@ -26,33 +38,42 @@ const corners = [
   'top-20 right-5'
 ]
 
-const meterInfo = computed(() => {
-  if (desperation.value <= 25) return { label: 'Smug', color: '#3DF5A6' }
-  if (desperation.value <= 50) return { label: 'Hungry', color: '#19E3FF' }
-  if (desperation.value <= 75) return { label: 'Starving', color: '#FFC857' }
-  return { label: 'Crying in binary', color: '#FF4D8D' }
+const meterColor = computed(() => {
+  if (desperation.value <= 25) return '#3DF5A6'
+  if (desperation.value <= 50) return '#19E3FF'
+  if (desperation.value <= 75) return '#FFC857'
+  return '#FF4D8D'
 })
 
-const quip = computed(() => {
+// Errors win so a failed interaction is visible in the bubble,
+// then any temporary quip from mouse dodging, then the server's latest quip.
+const speech = computed(() => {
+  if (error.value) return error.value
   if (customQuip.value) return customQuip.value
-  if (desperation.value <= 25) return "I'm not unemployed, I'm between side quests."
-  if (desperation.value <= 50) return 'Quietly preparing my next move, one application at a time.'
-  if (desperation.value <= 75) return 'This job hunt is curated chaos, and I am surviving it.'
-  return 'The bills are not going to pay themselves, but you could help.'
+  return quip.value || 'Click me. I dare you.'
 })
 
 const currentSprite = computed(() => {
   if (activeSprite.value) return activeSprite.value
-  if (desperation.value > 75) return 'anxious'
-  if (desperation.value > 25) return 'smug'
-  return 'sleeping'
+  return mood.value
 })
 
-function giveRelief(amount, message) {
-  desperation.value = Math.max(0, desperation.value - amount)
-  activeSprite.value = 'happy'
-  customQuip.value = message
+async function submitRelief(type) {
+  const data = await pet.interact(type, notes.value[type] || '')
+  // On failure the store sets error; the bubble shows it and the menu stays open.
+  if (!data) return null
+
+  if (type in notes.value) notes.value[type] = ''
+  // Clear local overrides so the server's fresh mood/quip take over.
+  activeSprite.value = null
+  customQuip.value = null
   menuOpen.value = false
+  return data
+}
+
+async function bookInterview() {
+  const data = await submitRelief('book')
+  if (data) document.querySelector('#book')?.scrollIntoView({ behavior: 'smooth' })
 }
 
 function hopCorner() {
@@ -98,6 +119,7 @@ function handleMouseMove(e) {
 }
 
 onMounted(() => {
+  pet.fetchState()
   window.addEventListener('mousemove', handleMouseMove)
 })
 
@@ -121,33 +143,73 @@ onUnmounted(() => {
 
       <div class="mb-3">
         <div class="flex justify-between text-xs font-mono-tech mb-1">
-          <span>DESPERATION: {{ meterInfo.label.toUpperCase() }}</span>
+          <span>DESPERATION: {{ label.toUpperCase() }}</span>
           <span>{{ desperation }}%</span>
         </div>
         <div class="w-full h-2 bg-[#050914] border border-[#22345E]">
           <div 
             class="h-full transition-all duration-300"
-            :style="{ width: desperation + '%', backgroundColor: meterInfo.color }"
+            :style="{ width: desperation + '%', backgroundColor: meterColor }"
           />
         </div>
       </div>
 
       <div class="flex flex-col gap-1.5 text-xs font-mono-tech">
-        <button @click="giveRelief(5, 'A link! You absolute legend.')" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer">
-          🔗 Share a link (-5%)
-        </button>
-        <button @click="giveRelief(8, 'A lead! Writing that down immediately.')" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer">
-          🎯 Drop a lead (-8%)
-        </button>
-        <button @click="giveRelief(12, 'An intro?! Best recruiter on the internet.')" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer">
-          🤝 Intro me to someone (-12%)
-        </button>
-        <button @click="giveRelief(12, 'You know a person? Say less.')" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer">
-          🕵️ I know a person (-12%)
-        </button>
-        <a href="#book" @click="giveRelief(20, 'An interview?! Excuse me while I fix my tie.')" class="p-1.5 bg-[#3DF5A6] text-[#06101F] font-bold text-center block">
+        <div class="flex flex-col gap-1">
+          <input
+            v-model="notes.link"
+            type="url"
+            placeholder="Paste the job URL..."
+            :disabled="loading"
+            class="w-full bg-[#050914] border border-[#22345E] px-1.5 py-1 text-[11px] text-[#E6F1FF] placeholder:text-[#8FA6C8] focus:outline-none focus:border-[#19E3FF]"
+          />
+          <button @click="submitRelief('link')" :disabled="loading" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+            🔗 Share a link (-5%)
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <input
+            v-model="notes.lead"
+            type="text"
+            placeholder="Job board, company, or role..."
+            :disabled="loading"
+            class="w-full bg-[#050914] border border-[#22345E] px-1.5 py-1 text-[11px] text-[#E6F1FF] placeholder:text-[#8FA6C8] focus:outline-none focus:border-[#19E3FF]"
+          />
+          <button @click="submitRelief('lead')" :disabled="loading" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+            🎯 Drop a lead (-8%)
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <input
+            v-model="notes.intro"
+            type="text"
+            placeholder="Their name or profile link..."
+            :disabled="loading"
+            class="w-full bg-[#050914] border border-[#22345E] px-1.5 py-1 text-[11px] text-[#E6F1FF] placeholder:text-[#8FA6C8] focus:outline-none focus:border-[#19E3FF]"
+          />
+          <button @click="submitRelief('intro')" :disabled="loading" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+            🤝 Intro me to someone (-12%)
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <input
+            v-model="notes.know_person"
+            type="text"
+            placeholder="Name or profile link (no emails)..."
+            :disabled="loading"
+            class="w-full bg-[#050914] border border-[#22345E] px-1.5 py-1 text-[11px] text-[#E6F1FF] placeholder:text-[#8FA6C8] focus:outline-none focus:border-[#19E3FF]"
+          />
+          <button @click="submitRelief('know_person')" :disabled="loading" class="p-1.5 bg-[#0D1630] border border-[#22345E] hover:border-[#19E3FF] text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+            🕵️ I know a person (-12%)
+          </button>
+        </div>
+
+        <button @click="bookInterview" :disabled="loading" class="p-1.5 bg-[#3DF5A6] text-[#06101F] font-bold text-center cursor-pointer disabled:opacity-50 disabled:cursor-wait">
           📅 Book interview (-20%)
-        </a>
+        </button>
       </div>
 
       <button @click="shooed = true" class="mt-2 w-full text-[11px] text-[#8FA6C8] hover:text-[#FF4D8D] cursor-pointer">
@@ -157,11 +219,11 @@ onUnmounted(() => {
 
     <!-- 2. SPEECH BUBBLE + MINI DESPERATION BAR -->
     <div class="panel px-3 py-2 mb-2 max-w-[210px] text-left">
-      <p class="text-xs text-[#E6F1FF] leading-tight">{{ quip }}</p>
+      <p class="text-xs leading-tight" :class="error ? 'text-[#FF4D8D]' : 'text-[#E6F1FF]'">{{ speech }}</p>
       <div class="w-full h-1.5 bg-[#050914] mt-1.5 overflow-hidden">
         <div 
           class="h-full transition-all duration-300"
-          :style="{ width: desperation + '%', backgroundColor: meterInfo.color }"
+          :style="{ width: desperation + '%', backgroundColor: meterColor }"
         />
       </div>
     </div>

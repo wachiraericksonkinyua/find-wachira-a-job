@@ -4,3 +4,8 @@
 - Set up monorepo structure (`/backend` and `/web`).
 - Configured `.gitignore` and isolated `.env` so secrets never touch Git.
 - Built FastAPI `/health` endpoint with CORS middleware and verified interactive `/docs`.
+
+## Day 5: Pet State API & Pinia Integration
+- Added `/api/pet/state` and `/api/pet/interact` with file-backed pet state, relief points, and per-IP rate limiting.
+- Added a Pinia pet store (`web/src/stores/pet.js`) with `fetchState()` and `interact()`, exposing reactive desperation, label, mood, quip, loading, and error.
+- Connected `Pet.vue` to the store: live state on mount, note inputs for link/lead/intro/know_person, one-click book action, and server validation/rate-limit errors shown in the speech bubble.
