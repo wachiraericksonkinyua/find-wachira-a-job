@@ -1,8 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-// Day 6 will swap this for import.meta.env.VITE_API_URL.
-const API_URL = 'http://127.0.0.1:8000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 export const usePetStore = defineStore('pet', () => {
   // Shared state: any component can read these and updates happen everywhere.
