@@ -20,3 +20,9 @@
 - Added `backend/app/resume.py`, which renders that JSON to a PDF with fpdf2 and caches the bytes until the data file's mtime changes.
 - Exposed `GET /api/resume` (downloadable PDF) and `GET /api/resume.json` (the structured source, ready for future per-job AI tailoring).
 - Wired the site's resume and email links to the API and the real address; added fpdf2 and its runtime dependencies to `requirements.txt`.
+
+## Day 7: LLM Client
+- Added `backend/app/llm.py`, a provider-agnostic client for Groq (OpenAI-compatible) and Gemini with a hard timeout, ordered fallback, and safe error messages.
+- Delimited visitor text inside a `<context>` block and instructed the model to treat it as untrusted data, the first defense against prompt injection (OWASP LLM01).
+- Exposed `GET /api/llm/status` (which providers have keys) and `GET /api/pet/judgment` (non-streaming monkey commentary; Day 8 upgrades it to SSE).
+- Added a tighter per-IP rate limit for LLM routes, documented the env vars in `backend/.env.example`, and added httpx to `requirements.txt`.

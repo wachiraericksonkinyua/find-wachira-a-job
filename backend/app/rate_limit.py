@@ -48,3 +48,6 @@ class SlidingWindowLimiter:
 
 # One shared limiter per process: 5 interactions per minute per IP.
 interact_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60)
+
+# LLM calls cost real money, so keep this tighter than the pet interactions.
+llm_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60)

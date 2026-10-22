@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.llm import LLMError, configured_providers, generate_judgment
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
-from app.rate_limit import interact_limiter
+from app.rate_limit import interact_limiter, llm_limiter
 from app.resume import load_resume_data, render_resume_pdf
 
 app = FastAPI(title="Find Wachira a Job API", version="0.1.0")
@@ -67,3 +68,43 @@ def pet_interact(payload: InteractRequest, request: Request):
 
     # Pydantic has already validated and cleaned the body by now.
     return record_interaction(payload.type, payload.note)
+
+
+@app.get("/api/llm/status")
+def llm_status():
+    # Never return the keys themselves, only which providers are ready.
+    return {"providers": configured_providers()}
+
+
+@app.get("/api/pet/judgment")
+def pet_judgment(
+    request: Request,
+    action: str = Query(default="scroll_projects", max_length=40),
+    context: str | None = Query(default=None, max_length=500),
+):
+    # This is the non-streaming LLM client from Day 7. Day 8 upgrades the same
+    # data path to Server-Sent Events for the Judgment Box.
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not llm_limiter.allow(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many judgments! The monkey needs a breather.",
+        )
+
+    if not configured_providers():
+        raise HTTPException(
+            status_code=503,
+            detail="No LLM key configured. Set GROQ_API_KEY or GEMINI_API_KEY in backend/.env.",
+        )
+
+    try:
+        reply = generate_judgment(action, context)
+    except LLMError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "commentary": reply.text,
+        "provider": reply.provider,
+        "model": reply.model,
+    }
