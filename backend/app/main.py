@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
 from app.rate_limit import interact_limiter
+from app.resume import load_resume_data, render_resume_pdf
 
 app = FastAPI(title="Find Wachira a Job API", version="0.1.0")
 
@@ -22,6 +23,27 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "db": True}
+
+
+@app.get("/api/resume")
+def resume_pdf():
+    # Deterministic render from resume_data.json: the public download cannot
+    # invent experience the way a live LLM generation call could.
+    pdf = render_resume_pdf()
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="wachira-erickson-kinyua-resume.pdf"',
+        },
+    )
+
+
+@app.get("/api/resume.json")
+def resume_json():
+    # The same structured source used by the PDF renderer, ready for future
+    # per-job tailoring without scraping the PDF.
+    return load_resume_data()
 
 
 @app.get("/api/pet/state")

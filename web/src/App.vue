@@ -65,7 +65,7 @@ onMounted(async () => {
         <!-- Quick Contact Links -->
         <nav aria-label="Contact links" class="mt-5 flex flex-wrap items-center gap-2">
           <a
-            href="https://github.com/"
+            href="https://github.com/wachiraericksonkinyua"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub profile"
@@ -80,7 +80,7 @@ onMounted(async () => {
           </a>
 
           <a
-            href="https://linkedin.com/"
+            href="https://www.linkedin.com/in/erickson-kinyua-28b7b2327"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="LinkedIn profile"
@@ -95,8 +95,8 @@ onMounted(async () => {
           </a>
 
           <a
-            href="mailto:"
-            aria-label="Send an email"
+            href="mailto:ericksonkinyua681@gmail.com"
+            aria-label="Email ericksonkinyua681@gmail.com"
             class="group inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
           >
             <span class="panel inline-flex items-center gap-2 px-3 py-2 font-mono-tech text-xs text-[#E6F1FF] transition-colors group-hover:border-[#19E3FF] group-hover:text-[#19E3FF]">
@@ -109,8 +109,8 @@ onMounted(async () => {
           </a>
 
           <a
-            href="/api/resume"
-            download
+            :href="`${API_URL}/api/resume`"
+            download="wachira-erickson-kinyua-resume.pdf"
             aria-label="Download resume"
             class="group inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
           >
@@ -127,6 +127,36 @@ onMounted(async () => {
 
       <!-- The Pet Component (Passes down the professionalMode property) -->
       <Pet :professionalMode="professionalMode" />
+
+      <!-- Booking / contact target for the sticky CTA and the pet menu -->
+      <section id="book" class="mt-16 scroll-mt-24">
+        <div class="panel p-6 md:p-8 text-center">
+          <p class="font-pixel text-[10px] text-[#19E3FF] mb-3">READY TO TALK?</p>
+          <h2 class="font-orbitron text-2xl md:text-3xl font-bold mb-3">
+            BOOK AN INTERVIEW
+          </h2>
+          <p class="text-[#8FA6C8] max-w-xl mx-auto mb-5">
+            Send the role, the team, or a time that works. The resume download is always
+            generated from the latest source data.
+          </p>
+          <div class="flex flex-wrap justify-center gap-2">
+            <a
+              href="mailto:ericksonkinyua681@gmail.com?subject=Interview%20request"
+              class="panel inline-flex items-center gap-2 px-4 py-2 font-mono-tech text-xs text-[#06101F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
+              style="background: var(--leaf);"
+            >
+              EMAIL WACHIRA
+            </a>
+            <a
+              :href="`${API_URL}/api/resume`"
+              download="wachira-erickson-kinyua-resume.pdf"
+              class="panel inline-flex items-center gap-2 px-4 py-2 font-mono-tech text-xs text-[#E6F1FF] hover:border-[#19E3FF] hover:text-[#19E3FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
+            >
+              DOWNLOAD RESUME
+            </a>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- Sticky Floating "Book Interview" Button -->

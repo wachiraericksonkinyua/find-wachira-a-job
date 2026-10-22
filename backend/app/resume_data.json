@@ -1,0 +1,97 @@
+{
+  "name": "Wachira Erickson Kinyua",
+  "headline": "Final-year B.Sc. IT Engineer | Backend, Web & AI Systems",
+  "location": "Nairobi, Kenya",
+  "email": "ericksonkinyua681@gmail.com",
+  "phone": "+254112323814",
+  "links": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/wachiraericksonkinyua"
+    },
+    {
+      "label": "LinkedIn",
+      "url": "https://www.linkedin.com/in/erickson-kinyua-28b7b2327"
+    }
+  ],
+  "summary": "Final-year B.Sc. Information Technology student at Karatina University building production-style backends with FastAPI and PostgreSQL, modern Vue.js interfaces, and hardened AI/LLM pipelines. Comfortable owning a feature from data model and API design through validation, rate limiting, and deployment. Looking for internships and junior engineering roles where I can ship real software.",
+  "skills": [
+    {
+      "group": "Backend",
+      "items": ["Python", "FastAPI", "PostgreSQL", "Supabase", "REST APIs", "Pydantic", "Rate limiting"]
+    },
+    {
+      "group": "Frontend",
+      "items": ["Vue.js", "JavaScript", "Pinia", "Flet", "Tailwind CSS", "Vite"]
+    },
+    {
+      "group": "Integrations",
+      "items": ["M-Pesa Daraja STK Push", "Callback handling", "Third-party APIs"]
+    },
+    {
+      "group": "AI / Data",
+      "items": ["LLM pipelines", "Prompt engineering", "Data validation", "Structured outputs"]
+    },
+    {
+      "group": "Tooling",
+      "items": ["Git", "Docker", "Linux", "pytest", "CI-ready builds"]
+    }
+  ],
+  "experience": [
+    {
+      "role": "IT Intern",
+      "company": "Judiciary of Kenya",
+      "start": "2025",
+      "end": "2025",
+      "location": "Nairobi, Kenya",
+      "bullets": [
+        "Supported institutional ICT infrastructure, including endpoint setup, network connectivity, and peripheral configuration.",
+        "Performed preventive systems maintenance and troubleshooting to keep court and administrative users productive.",
+        "Provided responsive user technical support and documented recurring issues and resolutions."
+      ]
+    },
+    {
+      "role": "Backend & AI Engineer",
+      "company": "Independent Projects",
+      "start": "2024",
+      "end": "Present",
+      "location": "Nairobi, Kenya",
+      "bullets": [
+        "Designed and shipped FastAPI services with typed request models, validation, per-IP rate limiting, and atomic JSON persistence.",
+        "Built responsive Vue.js and Pinia frontends that consume the APIs and expose clear loading, error, and success states.",
+        "Implemented LLM pipeline components with structured prompts, output validation, and safe fallbacks for malformed responses."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "AyuTech",
+      "bullets": [
+        "Built a full-stack platform with a Python FastAPI backend, Vue.js/Flet client, and PostgreSQL via Supabase.",
+        "Integrated M-Pesa Daraja STK Push for real-time payment prompts and callback handling.",
+        "Modeled data and validated payment flows end to end, including failure paths and user feedback."
+      ]
+    },
+    {
+      "name": "Find Wachira a Job",
+      "url": "https://github.com/wachiraericksonkinyua",
+      "bullets": [
+        "Full-stack job-hunt site with a FastAPI backend, Vue 3 frontend, Pinia state, and a game-like 'desperation' meter.",
+        "Deterministic resume pipeline: structured JSON is rendered to PDF on demand, so the public download never hallucinates.",
+        "Production hardening: CORS allow-list, environment-based API URLs, request validation, and rate-limited write endpoints."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "B.Sc. Information Technology",
+      "school": "Karatina University",
+      "start": "2022",
+      "end": "Expected 2026",
+      "location": "Karatina, Kenya",
+      "details": [
+        "Final-year coursework across software engineering, databases, networking, and applied artificial intelligence."
+      ]
+    }
+  ]
+}
