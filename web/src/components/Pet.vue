@@ -2,6 +2,9 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePetStore } from '../stores/pet'
+import { useStream } from '../composables/useStream'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 defineProps({
   professionalMode: {
@@ -12,6 +15,13 @@ defineProps({
 
 const pet = usePetStore()
 const { desperation, label, mood, quip, loading, error } = storeToRefs(pet)
+const {
+  text: streamText,
+  streaming: streamLoading,
+  error: streamError,
+  startStream,
+  stopStream
+} = useStream()
 
 const shooed = ref(false)
 const menuOpen = ref(false)
@@ -45,10 +55,14 @@ const meterColor = computed(() => {
   return '#FF4D8D'
 })
 
-// Errors win so a failed interaction is visible in the bubble,
-// then any temporary quip from mouse dodging, then the server's latest quip.
+// Errors win so a failed interaction is visible in the bubble. A live or
+// finished judgment stays put until the next interaction clears it.
 const speech = computed(() => {
   if (error.value) return error.value
+  if (streamError.value) return streamError.value
+  if (streamLoading.value || streamText.value) {
+    return streamText.value || 'The monkey is judging you...'
+  }
   if (customQuip.value) return customQuip.value
   return quip.value || 'Click me. I dare you.'
 })
@@ -59,6 +73,10 @@ const currentSprite = computed(() => {
 })
 
 async function submitRelief(type) {
+  stopStream()
+  streamText.value = ''
+  streamError.value = null
+
   const data = await pet.interact(type, notes.value[type] || '')
   // On failure the store sets error; the bubble shows it and the menu stays open.
   if (!data) return null
@@ -74,6 +92,15 @@ async function submitRelief(type) {
 async function bookInterview() {
   const data = await submitRelief('book')
   if (data) document.querySelector('#book')?.scrollIntoView({ behavior: 'smooth' })
+}
+
+function judgeScroll() {
+  const context = encodeURIComponent('The recruiter is skimming the projects section.')
+  activeSprite.value = 'judging'
+  customQuip.value = null
+  startStream(
+    `${API_URL}/api/pet/judgment?action=scroll_projects&context=${context}`
+  )
 }
 
 function hopCorner() {
@@ -126,6 +153,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('mousemove', handleMouseMove)
   clearTimeout(stopTimer)
+  stopStream()
 })
 </script>
 
@@ -153,6 +181,14 @@ onUnmounted(() => {
           />
         </div>
       </div>
+
+      <button
+        @click="judgeScroll"
+        :disabled="streamLoading"
+        class="w-full mb-3 p-2 bg-[#19E3FF] text-[#06101F] font-bold text-xs hover:opacity-90 cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+      >
+        {{ streamLoading ? 'JUDGING...' : 'JUDGE MY SCROLL' }}
+      </button>
 
       <div class="flex flex-col gap-1.5 text-xs font-mono-tech">
         <div class="flex flex-col gap-1">
@@ -219,13 +255,25 @@ onUnmounted(() => {
 
     <!-- 2. SPEECH BUBBLE + MINI DESPERATION BAR -->
     <div class="panel px-3 py-2 mb-2 max-w-[210px] text-left">
-      <p class="text-xs leading-tight" :class="error ? 'text-[#FF4D8D]' : 'text-[#E6F1FF]'">{{ speech }}</p>
+      <p
+        class="text-xs leading-tight"
+        :class="(error || streamError) ? 'text-[#FF4D8D]' : 'text-[#E6F1FF]'"
+      >
+        {{ speech }}<span v-if="streamLoading" class="animate-pulse">|</span>
+      </p>
       <div class="w-full h-1.5 bg-[#050914] mt-1.5 overflow-hidden">
         <div 
           class="h-full transition-all duration-300"
           :style="{ width: desperation + '%', backgroundColor: meterColor }"
         />
       </div>
+      <button
+        v-if="streamLoading"
+        @click="stopStream"
+        class="mt-1.5 font-pixel text-[8px] text-[#FF4D8D] hover:text-[#E6F1FF] cursor-pointer"
+      >
+        STOP STREAM
+      </button>
     </div>
 
     <!-- 3. THE 96px FLOATING MONKEY SPRITE -->

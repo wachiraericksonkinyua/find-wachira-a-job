@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
-from app.llm import LLMError, configured_providers, generate_judgment
+from app.llm import configured_providers, stream_judgment
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
 from app.rate_limit import interact_limiter, llm_limiter
 from app.resume import load_resume_data, render_resume_pdf
@@ -77,13 +78,14 @@ def llm_status():
 
 
 @app.get("/api/pet/judgment")
-def pet_judgment(
+async def pet_judgment(
     request: Request,
     action: str = Query(default="scroll_projects", max_length=40),
     context: str | None = Query(default=None, max_length=500),
 ):
-    # This is the non-streaming LLM client from Day 7. Day 8 upgrades the same
-    # data path to Server-Sent Events for the Judgment Box.
+    # Stream the model's tokens as Server-Sent Events. The generator handles
+    # provider fallback and emits its own local fallback when no key is set,
+    # because HTTP headers cannot be changed once streaming has started.
     client_ip = request.client.host if request.client else "unknown"
 
     if not llm_limiter.allow(client_ip):
@@ -92,19 +94,11 @@ def pet_judgment(
             detail="Too many judgments! The monkey needs a breather.",
         )
 
-    if not configured_providers():
-        raise HTTPException(
-            status_code=503,
-            detail="No LLM key configured. Set GROQ_API_KEY or GEMINI_API_KEY in backend/.env.",
-        )
-
-    try:
-        reply = generate_judgment(action, context)
-    except LLMError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-    return {
-        "commentary": reply.text,
-        "provider": reply.provider,
-        "model": reply.model,
-    }
+    return StreamingResponse(
+        stream_judgment(action, context),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

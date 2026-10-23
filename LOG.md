@@ -26,3 +26,10 @@
 - Delimited visitor text inside a `<context>` block and instructed the model to treat it as untrusted data, the first defense against prompt injection (OWASP LLM01).
 - Exposed `GET /api/llm/status` (which providers have keys) and `GET /api/pet/judgment` (non-streaming monkey commentary; Day 8 upgrades it to SSE).
 - Added a tighter per-IP rate limit for LLM routes, documented the env vars in `backend/.env.example`, and added httpx to `requirements.txt`.
+
+## Day 8: SSE Streaming Judgment Box
+- Added `stream_judgment()` in `backend/app/llm.py`: an async generator that reads Groq and Gemini token streams over `httpx`, wraps each token in a JSON-encoded SSE frame, falls back to the next provider, and always ends with `data: [DONE]`.
+- Upgraded `GET /api/pet/judgment` to a `StreamingResponse` with `text/event-stream`, `Cache-Control: no-cache`, and `X-Accel-Buffering: no`, keeping the per-IP rate limit.
+- Added `web/src/composables/useStream.js`, which reads the response with `fetch`, `ReadableStream`, and `TextDecoder`, exposes reactive `text`/`streaming`/`error` state, and cancels stale requests with `AbortController`.
+- Wired a "Judge my scroll" trigger into `Pet.vue` so tokens stream live into the monkey's speech bubble, with a stop control.
+- Loaded `backend/.env` automatically via `python-dotenv` so provider keys are available without manually exporting the file first.

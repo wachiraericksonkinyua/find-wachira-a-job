@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
 import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DEFAULT_MODELS = {
     "groq": "llama-3.1-8b-instant",
@@ -190,3 +196,152 @@ def generate_judgment(action: str, context: str | None) -> LLMReply:
         judgment_prompt(action, context),
         max_tokens=120,
     )
+
+
+DONE_FRAME = "data: [DONE]\n\n"
+
+FALLBACK_JUDGMENT = (
+    "The monkey's cloud brain is offline, but the judgment is not: "
+    "{action} noted. Go make Wachira look employable."
+)
+
+
+def _sse_frame(payload: dict) -> str:
+    """Wrap one token in a JSON SSE frame.
+
+    JSON escapes newlines, quotes and backslashes inside the token, so a
+    multi-line model reply can never split or corrupt the SSE frame.
+    """
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+async def _stream_groq(
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int,
+) -> AsyncIterator[str]:
+    model = _model_for("groq")
+    async with httpx.AsyncClient(timeout=_timeout_seconds()) as client:
+        async with client.stream(
+            "POST",
+            f"{_base_url_for('groq')}/chat/completions",
+            headers={"Authorization": f"Bearer {_key_for('groq')}"},
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": 0.7,
+                "max_tokens": max_tokens,
+                "stream": True,
+            },
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                payload = line[len("data:") :].strip()
+                if payload == "[DONE]":
+                    return
+                if not payload:
+                    continue
+                try:
+                    data = json.loads(payload)
+                    piece = data["choices"][0]["delta"].get("content")
+                except (KeyError, IndexError, TypeError, AttributeError, ValueError):
+                    continue
+                if piece:
+                    yield piece
+
+
+async def _stream_gemini(
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int,
+) -> AsyncIterator[str]:
+    model = _model_for("gemini")
+    async with httpx.AsyncClient(timeout=_timeout_seconds()) as client:
+        async with client.stream(
+            "POST",
+            f"{_base_url_for('gemini')}/models/{model}:streamGenerateContent",
+            params={"key": _key_for("gemini"), "alt": "sse"},
+            json={
+                "systemInstruction": {"parts": [{"text": system_prompt}]},
+                "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": max_tokens,
+                },
+            },
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                payload = line[len("data:") :].strip()
+                if not payload or payload == "[DONE]":
+                    continue
+                try:
+                    data = json.loads(payload)
+                    parts = data["candidates"][0]["content"]["parts"]
+                    piece = "".join(part.get("text", "") for part in parts)
+                except (KeyError, IndexError, TypeError, AttributeError, ValueError):
+                    continue
+                if piece:
+                    yield piece
+
+
+STREAMERS = {
+    "groq": _stream_groq,
+    "gemini": _stream_gemini,
+}
+
+STREAM_ERRORS = (
+    httpx.TimeoutException,
+    httpx.HTTPStatusError,
+    httpx.HTTPError,
+    LLMError,
+    ValueError,
+    TypeError,
+)
+
+
+async def stream_judgment(
+    action: str,
+    context: str | None,
+    *,
+    max_tokens: int = 120,
+) -> AsyncIterator[str]:
+    """Yield SSE frames for a judgment, one model token at a time.
+
+    The first configured provider is tried first. If it fails before sending
+    any text, the next provider is tried. If every provider fails, or no key
+    is configured at all, a local fallback line is streamed so the browser
+    still receives a complete, valid SSE response.
+    """
+    system_prompt = JUDGMENT_SYSTEM_PROMPT
+    user_prompt = judgment_prompt(action, context)
+    providers = configured_providers()
+
+    for provider in providers:
+        streamed = False
+        try:
+            async for piece in STREAMERS[provider](system_prompt, user_prompt, max_tokens):
+                streamed = True
+                yield _sse_frame({"token": piece})
+        except STREAM_ERRORS:
+            if streamed:
+                # The browser already has partial text; closing cleanly is
+                # safer than restarting with another provider mid-sentence.
+                yield DONE_FRAME
+                return
+            continue
+
+        if streamed:
+            yield DONE_FRAME
+            return
+
+    safe_action = (action or "that").strip()[:40] or "that"
+    yield _sse_frame({"token": FALLBACK_JUDGMENT.format(action=safe_action)})
+    yield DONE_FRAME
