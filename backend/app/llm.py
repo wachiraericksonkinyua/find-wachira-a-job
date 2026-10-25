@@ -210,7 +210,7 @@ def complete(
 
     raise LLMError("All LLM providers failed: " + "; ".join(failures))
 
-
+#here's a function that builds a prompt for the LLM to judge a visitor's action. It takes the action and context as input, sanitizes the context, and returns a formatted string that includes the action and context in a way that the LLM can understand. The context is wrapped in <context> tags to indicate that it is untrusted data.
 def judgment_prompt(action: str, context: str | None) -> str:
     """Build the user prompt with visitor text clearly delimited as data."""
     safe_context = (context or "").strip()[:500]
