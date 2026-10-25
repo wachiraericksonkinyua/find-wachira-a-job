@@ -28,7 +28,7 @@ PRIVATE_NOTE_TYPES = {"intro", "know_person"}
 # Types that are useless without a short note (a link with no link).
 NOTE_REQUIRED_TYPES = {"link", "lead", "intro", "know_person"}
 
-EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+") #a regex (pattern matcher) that finds email-shaped strings inside free text.
 
 QUIPS = {
     "link": "A link? Saving my dignity one URL at a time.",
@@ -39,19 +39,23 @@ QUIPS = {
 }
 
 
-class InteractRequest(BaseModel):
+class InteractRequest(BaseModel):#pydanti model . this is a form template for the request body.
+    #when fast api recieves a request to post /api/pet/interact, it takes the raw json body and pours it into this shape. If the json is missing a required field or has a field of the wrong type, FastAPI will reject it with a 422 error before it even reaches the endpoint code.
     """Shape of POST /api/pet/interact. FastAPI rejects bad bodies with 422."""
-
+    #this filed type is a literal string that can only be one of the specified values: "link", "lead", "intro", "know_person", or "book". This means that when creating an instance of InteractRequest, the type attribute must be set to one of these five strings. If a different string is provided, it will raise a validation error.
     type: Literal["link", "lead", "intro", "know_person", "book"]
     note: str | None = Field(default=None, max_length=280)
 
-    @field_validator("note")
+    @field_validator("note")#run this function on the note ffield after type-checking .so before clean_notes runs , pydantic has already verified its a str or none and <= 280 chars.
+    #@classmethod means pydantic validators must be class methods, which means they receive the class itself as the first argument (cls) instead of an instance of the class. This allows the validator to access class-level attributes or methods if needed.
+    #the instance does not exist yet, we are building it, so we cannot use self.
+    #interviwer may ask: why not classmethod? coz the instance does not exist yet, we are building it, so we cannot use self. 
     @classmethod
-    def clean_note(cls, value: str | None) -> str | None:
+    def clean_note(cls, value: str | None) -> str | None:# this function is a validator for the note field in the InteractRequest model. It takes the value of the note field (which can be a string or None) and returns a cleaned version of it. The cleaning process involves trimming whitespace from the beginning and end of the string and treating an empty string as None. If the value is None, it returns None. If the value is a string, it strips any leading or trailing whitespace and returns the stripped string. If the stripped string is empty, it returns None instead of an empty string. This ensures that the note field is either a non-empty string or None, which can be useful for validation and processing later on.
         # Trim whitespace and treat "" as no note at all.
         if value is None:
             return None
-        value = value.strip()
+        value = value.strip()#trim whitespace from the beginning and end of the string eg "   hello world   " becomes "hello world"
         return value or None
 
     @model_validator(mode="after")
@@ -88,7 +92,7 @@ def _seed_state() -> dict:
         "relief_date": now.date().isoformat(),
     }
 
-
+#_UNLOCKED ITS a contract: 
 def _write_unlocked(state: dict) -> None:
     """Write atomically so a crash cannot leave half a JSON file."""
     tmp = STATE_FILE.with_suffix(".tmp")

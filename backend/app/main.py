@@ -2,7 +2,12 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from app.llm import configured_providers, stream_judgment
+from app.llm import (
+    InterrogateRequest,
+    configured_providers,
+    stream_interrogation,
+    stream_judgment,
+)
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
 from app.rate_limit import interact_limiter, llm_limiter
 from app.resume import load_resume_data, render_resume_pdf
@@ -96,6 +101,28 @@ async def pet_judgment(
 
     return StreamingResponse(
         stream_judgment(action, context),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/recruiter/interrogate")
+async def recruiter_interrogate(payload: InterrogateRequest, request: Request):
+    # Stream a grounded verdict on the pasted JD. The JD is capped and wrapped
+    # as untrusted data in llm.py before it reaches the model.
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not llm_limiter.allow(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many interrogations! Give the monkey time to read.",
+        )
+
+    return StreamingResponse(
+        stream_interrogation(payload.company, payload.role, payload.jd),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

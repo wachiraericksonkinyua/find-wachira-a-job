@@ -24,23 +24,30 @@ class SlidingWindowLimiter:
         cutoff = now - self.window_seconds
 
         with self._lock:
-            timestamps = self._hits[key]
+            timestamps = self._hits[key]#get this visitors history(the deque of timestamps) from the _hits dictionary using the provided key. If the key does not exist in the dictionary, a new empty deque will be created automatically due to the use of defaultdict.
 
             # Slide the window: forget hits that fell out of range.
-            while timestamps and timestamps[0] <= cutoff:
+            #<= cutoff "is this old hit outside the 60 second window?" If so, remove it from the deque.
+            while timestamps and timestamps[0] <= cutoff:#timestamps[0] is the  oldest hit for this visitor.
                 timestamps.popleft()
 
+            #if the visitor has already hit the limit, refuse the request.
             if len(timestamps) >= self.max_requests:
                 return False
 
-            timestamps.append(now)
+            timestamps.append(now)#they are allowed, so record the hit to the deque.
             self._maybe_sweep(cutoff)
             return True
+#why sliding and not fixed window? Because if you have a fixed window, you could have a situation where a user makes 5 requests at the end of one window and then immediately makes 5 more requests at the start of the next window, effectively allowing them to make 10 requests in a short period of time. A sliding window prevents this by continuously checking the last N seconds from the current time.
+#a sliding window always look at the last 60 seconds from the current time,so ot can be gamed at the boundary 
 
+#self._hits never shrinks on its own, so we need to occasionally sweep out old clients. This is done in _maybe_sweep, which is called on every hit. It only does anything if there are at least 1000 clients, and it only drops clients that have no hits in the current window.
     def _maybe_sweep(self, cutoff: float) -> None:
         """Drop fully expired clients so the dict cannot grow forever."""
-        if len(self._hits) < 1000:
+        if len(self._hits) < 1000:#only sweep if there are at least 1000 clients, to avoid unnecessary overhead for small numbers of clients.
             return
+        #stale- is a list that finds dead clients:  not hits- the deque is empty(client never got any hits in the current window, or all hits aged out)
+        #hits[-1] <= cutoff- the last hit is older than the cutoff, meaning the client has not made any requests in the current window. 
         stale = [key for key, hits in self._hits.items() if not hits or hits[-1] <= cutoff]
         for key in stale:
             del self._hits[key]
