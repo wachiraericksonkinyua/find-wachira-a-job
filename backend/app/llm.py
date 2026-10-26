@@ -197,8 +197,9 @@ def complete(
     for provider in providers:
         try:
             text = CALLERS[provider](system_prompt, user_prompt, max_tokens)
-
-           status = exc.response.status_code
+            return LLMReply(text=text, provider=provider, model=_model_for(provider))
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code if exc.response is not None else None
             if status == 429:
                 failures.append(f"{provider} is rate limited")
             else:
@@ -353,7 +354,9 @@ STREAM_ERRORS = (
     TypeError,
 )
 
-
+#this is a async function doesnt return a string but an async iterator of strings( it yields frames one at a time, asfast as the model produce tokens).
+# this is what makes live typing possible. The function tries each configured provider in order, yielding SSE frames for each token produced by the model. If a provider fails before sending any text, it moves on to the next provider. If a provider starts streaming text but fails mid-stream, it yields a DONE frame and stops. If all providers fail, it yields a fallback text and a DONE frame.
+# doesnt wait for the whole response to be generated before sending it to the client. Instead, it sends each token as soon as it is produced, allowing the client to display the text in real time. 
 async def _stream_sse(
     system_prompt: str,
     user_prompt: str,
@@ -366,11 +369,14 @@ async def _stream_sse(
     Once text has been sent, a mid-stream failure closes the response cleanly
     instead of restarting the sentence with another provider.
     """
-    for provider in configured_providers():
-        streamed = False
+    #RETURNS only providers with a key present in .env, in the order we would try them. If no key is configured at all, returns an empty list.
+    for provider in configured_providers():# TRY each provider in order, skipping any that are not configured. If a provider fails before sending any text, the next provider is tried. Once text has been sent, a mid-stream failure closes the response cleanly instead of restarting the sentence with another provider.
+        streamed = False #the critical flag. "have i sent at least one token to the client yet?" resets to false at the start of each provider ,coz each is a fresh attempt. If a provider fails before sending any text, the next provider is tried. Once text has been sent, a mid-stream failure closes the response cleanly instead of restarting the sentence with another provider.
         try:
+            #pull tokens from the provider's. streamers is a dict mapping "groq" -> _stream_groq, "gemini" -> _stream_gemini. Same shape as CALLERS, in the non-streaming version -this is the "one interface , many providers " parttern .
             async for piece in STREAMERS[provider](system_prompt, user_prompt, max_tokens):
-                streamed = True
+                streamed = True#"first token just came in, so set the flag to true. If a provider fails before sending any text, the next provider is tried. Once text has been sent, a mid-stream failure closes the response cleanly instead of restarting the sentence with another provider."
+                #wraps the token in a sse frame (data: {json.dumps(payload, ensure_ascii=False)}\n\n) and send it downstrea to fast api Streaming response .
                 yield _sse_frame({"token": piece})
         except STREAM_ERRORS:
             if streamed:
