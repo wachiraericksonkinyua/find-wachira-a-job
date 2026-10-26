@@ -61,8 +61,16 @@ export function useStream() {
         } catch {
           detail = null
         }
+        if (Array.isArray(detail)) {
+          detail = detail
+            .map((item) => item?.msg)
+            .filter(Boolean)
+            .join('; ')
+        }
         throw new Error(
-          typeof detail === 'string' ? detail : `Stream failed (HTTP ${res.status})`
+          typeof detail === 'string' && detail
+            ? detail
+            : `Stream failed (HTTP ${res.status})`
         )
       }
 

@@ -33,3 +33,7 @@
 - Added `web/src/composables/useStream.js`, which reads the response with `fetch`, `ReadableStream`, and `TextDecoder`, exposes reactive `text`/`streaming`/`error` state, and cancels stale requests with `AbortController`.
 - Wired a "Judge my scroll" trigger into `Pet.vue` so tokens stream live into the monkey's speech bubble, with a stop control.
 - Loaded `backend/.env` automatically via `python-dotenv` so provider keys are available without manually exporting the file first.
+
+## Day 9: Recruiter JD Interrogator
+- 9A: Added `POST /api/recruiter/interrogate` with `<untrusted_jd>` prompt-injection delimiters (OWASP LLM01) and a 6,000-character input cap.
+- 9B: Added `Interrogate.vue` with a sci-fi UI panel, sample JD & injection test payloads, and live SSE streaming using `useStream.js`.

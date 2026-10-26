@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Pet from './components/Pet.vue'
+import Interrogate from './components/Interrogate.vue'
 
 // Reactive state variables
 const apiOnline = ref(false)
@@ -127,6 +128,8 @@ onMounted(async () => {
 
       <!-- The Pet Component (Passes down the professionalMode property) -->
       <Pet :professionalMode="professionalMode" />
+
+      <Interrogate />
 
       <!-- Booking / contact target for the sticky CTA and the pet menu -->
       <section id="book" class="mt-16 scroll-mt-24">
