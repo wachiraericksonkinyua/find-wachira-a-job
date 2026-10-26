@@ -37,3 +37,9 @@
 ## Day 9: Recruiter JD Interrogator
 - 9A: Added `POST /api/recruiter/interrogate` with `<untrusted_jd>` prompt-injection delimiters (OWASP LLM01) and a 6,000-character input cap.
 - 9B: Added `Interrogate.vue` with a sci-fi UI panel, sample JD & injection test payloads, and live SSE streaming using `useStream.js`.
+
+## Day 10: Excuse Buster & In-Memory TTL Cache
+- 10A: Implemented `backend/app/excuses.py` with 4 preset excuses and a thread-safe TTL cache (1 hour).
+- 10A: Cache is strictly keyed by `(excuse_id, resume_mtime)` to ensure responses are grounded in current resume facts; added safeguard to only cache completed LLM streams.
+- 10A: Added `GET /api/excuses` and `POST /api/excuse-buster` (streaming) to `main.py`.
+- 10B: Created `web/src/components/ExcuseBuster.vue` (UI), integrated it into `App.vue`, added proper `Content-Type` headers, accessibility labels, and styled it to match the portfolio theme.

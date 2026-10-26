@@ -2,9 +2,11 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from app.excuses import PRESET_EXCUSES, ExcuseRequest
 from app.llm import (
     InterrogateRequest,
     configured_providers,
+    stream_excuse_buster,
     stream_interrogation,
     stream_judgment,
 )
@@ -123,6 +125,37 @@ async def recruiter_interrogate(payload: InterrogateRequest, request: Request):
 
     return StreamingResponse(
         stream_interrogation(payload.company, payload.role, payload.jd),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/api/excuses")
+def get_excuses():
+    return [{"id": id, "text": text} for id, text in PRESET_EXCUSES.items()]
+
+
+@app.post("/api/excuse-buster")
+async def excuse_buster(payload: ExcuseRequest, request: Request):
+    from app.resume import DATA_FILE
+    
+    client_ip = request.client.host if request.client else "unknown"
+    if not llm_limiter.allow(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests! Monkey is tired.",
+        )
+        
+    if payload.excuse_id not in PRESET_EXCUSES:
+        raise HTTPException(status_code=422, detail="Unknown excuse ID")
+    
+    mtime = DATA_FILE.stat().st_mtime
+    
+    return StreamingResponse(
+        stream_excuse_buster(payload.excuse_id, mtime),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

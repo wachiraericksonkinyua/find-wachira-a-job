@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import Pet from './components/Pet.vue'
 import Interrogate from './components/Interrogate.vue'
+import ExcuseBuster from './components/ExcuseBuster.vue'
 
 // Reactive state variables
 const apiOnline = ref(false)
@@ -128,10 +129,11 @@ onMounted(async () => {
 
       <!-- The Pet Component (Passes down the professionalMode property) -->
       <Pet :professionalMode="professionalMode" />
-
       <Interrogate />
+      <ExcuseBuster />
 
       <!-- Booking / contact target for the sticky CTA and the pet menu -->
+
       <section id="book" class="mt-16 scroll-mt-24">
         <div class="panel p-6 md:p-8 text-center">
           <p class="font-pixel text-[10px] text-[#19E3FF] mb-3">READY TO TALK?</p>
