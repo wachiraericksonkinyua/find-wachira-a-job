@@ -375,6 +375,7 @@ async def _stream_sse(
     user_prompt: str,
     max_tokens: int,
     fallback_text: str,
+    outcome: dict | None = None,
 ) -> AsyncIterator[str]:
     """Yield SSE frames from the first working provider, else a local fallback.
 
@@ -398,6 +399,8 @@ async def _stream_sse(
             continue
 
         if streamed:
+            if outcome is not None:
+                outcome["ok"] = True
             yield DONE_FRAME
             return
 
@@ -466,29 +469,24 @@ async def stream_excuse_buster(
     
     # 2. Not cached: Stream from LLM and buffer for cache
     full_response = []
-    finished_successfully = False
-    
+    outcome = {"ok": False}
+
     async for frame in _stream_sse(
         EXCUSE_BUSTER_SYSTEM_PROMPT,
         excuse_buster_prompt(excuse_id),
         max_tokens,
         "The monkey's cloud brain is offline, but it knows one thing: "
-        "excuses are just hurdles to jump. Wachira's skills speak for themselves."
+        "excuses are just hurdles to jump. Wachira's skills speak for themselves.",
+        outcome=outcome,
     ):
-        # We need to extract the token from the frame (e.g. data: {"token": "..."}\n\n)
-        if frame.startswith("data:"):
-            if frame == DONE_FRAME:
-                finished_successfully = True
-                yield frame
-                continue
+        if frame.startswith("data:") and frame != DONE_FRAME:
             payload = json.loads(frame[len("data:") :].strip())
             token = payload.get("token")
             if token:
                 full_response.append(token)
         yield frame
-    
-    # 3. Cache the full response only if it finished successfully
-    if finished_successfully:
+
+    if outcome["ok"] and full_response:
         set_cached_excuse(excuse_id, resume_mtime, "".join(full_response))
 
 

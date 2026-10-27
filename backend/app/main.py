@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-
+from app.projects import Project, load_projects
 from app.excuses import PRESET_EXCUSES, ExcuseRequest
 from app.llm import (
     InterrogateRequest,
@@ -11,6 +11,7 @@ from app.llm import (
     stream_judgment,
 )
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
+from app.projects import load_projects
 from app.rate_limit import interact_limiter, llm_limiter
 from app.resume import load_resume_data, render_resume_pdf
 
@@ -53,6 +54,11 @@ def resume_json():
     # The same structured source used by the PDF renderer, ready for future
     # per-job tailoring without scraping the PDF.
     return load_resume_data()
+
+
+@app.get("/api/projects")
+def projects():
+    return load_projects()
 
 
 @app.get("/api/pet/state")
@@ -162,3 +168,7 @@ async def excuse_buster(payload: ExcuseRequest, request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+@app.get("/api/projects", response_model=list[Project])
+def projects():
+    return load_projects()

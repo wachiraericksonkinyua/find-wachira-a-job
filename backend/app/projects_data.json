@@ -1,0 +1,34 @@
+[
+  {
+    "id": "find-wachira-a-job",
+    "title": "Find Wachira a Job: AI Portfolio",
+    "problem": "A PDF resume cannot show live backend, streaming AI, or security skills.",
+    "build": "Vue 3 and FastAPI app with SSE token streaming, Groq and Gemini fallback, untrusted-input delimiters against prompt injection, per-IP rate limiting, a TTL cache keyed on resume file modification time, and a pytest regression test for partial-reply caching.",
+    "outcome": "Recruiters can paste a job description and get a verdict grounded in my real resume data. An Excuse Buster answers rejection excuses from the same facts.",
+    "stack": ["Vue 3", "FastAPI", "SSE", "Groq", "Gemini", "pytest"]
+  },
+  {
+    "id": "ayutech",
+    "title": "AyuTech Motors: E-commerce and Inventory Platform",
+    "problem": "An auto parts business needed inventory, payments, and customer inquiries in one system.",
+    "build": "FastAPI backend with a Flet interface and Supabase PostgreSQL. Safaricom Daraja STK push payments with webhook callback verification, a WhatsApp to database pipeline through Meta Cloud API, and role-based authentication.",
+    "outcome": "Automated M-Pesa payment confirmation and routed WhatsApp customer inquiries into the database.",
+    "stack": ["FastAPI", "Flet", "Supabase", "Daraja API", "Meta Cloud API", "Render", "Vercel"]
+  },
+  {
+    "id": "medical-rag-chatbot",
+    "title": "End-to-End Medical RAG Chatbot",
+    "problem": "A medical chatbot needs to answer from a trusted document base, not from the model's memory.",
+    "build": "Retrieval-Augmented Generation chatbot using Llama 2 and LangChain, with Pinecone for retrieval.",
+    "outcome": "A working chatbot that retrieves medical passages before answering.",
+    "stack": ["Llama 2", "LangChain", "Pinecone", "Python"]
+  },
+  {
+    "id": "scam-detector",
+    "title": "Ponzi Scheme Scam Detector",
+    "problem": "Job seekers can be lured by fraudulent job posts and Ponzi schemes.",
+    "build": "A web app where you paste a URL or job description. It uses the Groq LLM API to flag fraud patterns.",
+    "outcome": "A working tool that flags suspicious job posts and schemes.",
+    "stack": ["Python", "Groq API"]
+  }
+]

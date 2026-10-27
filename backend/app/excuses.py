@@ -11,6 +11,8 @@ PRESET_EXCUSES = {
     4: "We only hire from big tech companies"
 }
 
+#a class is a blueprint for creating objects. It defines the attributes and methods that the objects will have. In this case, the ExcuseRequest class is a data model that represents an excuse request. It has one attribute, excuse_id, which is an integer that represents the ID of the excuse being requested. The class inherits from BaseModel, which is a class from the Pydantic library that provides data validation and parsing. This means that when an instance of ExcuseRequest is created, Pydantic will validate that the excuse_id is an integer and will raise an error if it is not. This class can be used to validate incoming requests to the API endpoint that generates excuses based on the provided excuse_id.
+#bellow is a class that defines a data model for an excuse request. It inherits from BaseModel, which is a class from the Pydantic library that provides data validation and parsing. The ExcuseRequest class has one attribute, excuse_id, which is an integer that represents the ID of the excuse being requested. This class can be used to validate incoming requests to the API endpoint that generates excuses based on the provided excuse_id.
 class ExcuseRequest(BaseModel):
     excuse_id: int
 

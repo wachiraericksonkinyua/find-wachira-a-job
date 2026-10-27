@@ -43,3 +43,11 @@
 - 10A: Cache is strictly keyed by `(excuse_id, resume_mtime)` to ensure responses are grounded in current resume facts; added safeguard to only cache completed LLM streams.
 - 10A: Added `GET /api/excuses` and `POST /api/excuse-buster` (streaming) to `main.py`.
 - 10B: Created `web/src/components/ExcuseBuster.vue` (UI), integrated it into `App.vue`, added proper `Content-Type` headers, accessibility labels, and styled it to match the portfolio theme.
+
+## Day 11: Case Studies (RAG Setup)
+- 11A: Created `backend/app/projects_data.json` with three structured, grounded case studies (Find Wachira a Job, AyuTech, Clinical Triage Engine).
+- 11A: Created `backend/app/projects.py` helper to load projects and generate deterministic SHA-256 hashes for `problem`, `build`, and `outcome` text chunks to optimize future vector embedding.
+- 11A: Added `GET /api/projects` endpoint in `main.py` to expose this structured project data.
+- 11B: Created `web/src/components/Projects.vue` with a responsive grid of sci-fi case study panels.
+- 11B: Added "Ask Monkey About This Build" functionality per card using the judgment stream.
+- 11B: Integrated `<Projects />` into `App.vue` above the JD Interrogator.
