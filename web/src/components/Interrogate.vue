@@ -80,10 +80,7 @@ function interrogate() {
 </script>
 
 <template>
-  // class="mt-16" adds a top argin for spacing .scroll -t-24 adds a top scroll aargin which is usefull fo preventing the fixed header fro obscuring the secion when navigation to it via an anchor link
-  <section id="interrogate" class="mt-16 scroll-mt-24">//section is like a container.id = allows the page to link directly to this section eg via url harsh
-    //div is a styling wrapper for the sections content..panel: a custo css class for the container styling 
-    //p-6 md:p-8: padding for the container on mobile and desktop.it increases the padding on medium screens and above. flex flex-wrap items-end justify-between gap-3 mb-5: flexbox layout for the header content, wrapping items, aligning them to the end, justifying space between them, adding a gap between them, and adding a bottom margin.
+  <section id="interrogate" class="mt-16 scroll-mt-24">
     <div class="panel p-6 md:p-8">
       
       <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
