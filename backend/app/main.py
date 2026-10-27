@@ -7,11 +7,12 @@ from app.llm import (
     InterrogateRequest,
     configured_providers,
     stream_excuse_buster,
+    stream_inspect_project,
     stream_interrogation,
     stream_judgment,
 )
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
-from app.projects import load_projects
+from app.projects import get_project, load_projects
 from app.rate_limit import interact_limiter, llm_limiter
 from app.resume import load_resume_data, render_resume_pdf
 
@@ -59,6 +60,26 @@ def resume_json():
 @app.get("/api/projects")
 def projects():
     return load_projects()
+
+
+@app.get("/api/projects/{project_id}/inspect")
+async def inspect_project(project_id: str, request: Request):
+    project = get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    client_ip = request.client.host if request.client else "unknown"
+    if not llm_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests! Monkey is tired.")
+
+    return StreamingResponse(
+        stream_inspect_project(project),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/pet/state")

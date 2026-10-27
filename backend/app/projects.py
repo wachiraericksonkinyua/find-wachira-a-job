@@ -26,7 +26,16 @@ class ProjectChunk(TypedDict):
 def load_projects() -> list[Project]:
     path = Path(__file__).parent / "projects_data.json"
     with open(path, "r", encoding="utf-8") as f:
-        return [Project(**item) for item in json.load(f)]
+        projects = [Project(**item) for item in json.load(f)]
+        # Filter out clinical-triage-engine as requested
+        return [p for p in projects if p.id != "clinical-triage-engine"]
+
+
+def get_project(project_id: str) -> Project | None:
+    for p in load_projects():
+        if p.id == project_id:
+            return p
+    return None
 
 
 def iter_project_chunks() -> Iterator[ProjectChunk]:

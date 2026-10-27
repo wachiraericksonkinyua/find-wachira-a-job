@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.resume import load_resume_data
+from app.projects import Project
 from app.excuses import PRESET_EXCUSES, get_cached_excuse, set_cached_excuse
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -63,7 +64,31 @@ Rules:
 - Keep the reply under 180 words: a verdict plus a few short, specific points.
 """
 
-# ... (rest of the file)
+async def stream_inspect_project(
+    project: Project,
+    *,
+    max_tokens: int = 300,
+) -> AsyncIterator[str]:
+    """Yield SSE frames for inspecting a project build."""
+    system_prompt = (
+        "You are the Tech Mascot, an enthusiastic and witty engineer.\n"
+        "Your job is to talk about Wachira's projects based on the provided details."
+    )
+    user_prompt = (
+        f"The user is inspecting the '{project.title}' project.\n"
+        f"Problem: {project.problem}\n"
+        f"Build: {project.build}\n"
+        f"Outcome: {project.outcome}\n"
+        "Give a 1-2 sentence witty comment about this build."
+    )
+    
+    async for frame in _stream_sse(
+        system_prompt,
+        user_prompt,
+        max_tokens,
+        "This project build is top-tier. Wachira's skills speak for themselves.",
+    ):
+        yield frame
 
 
 class InterrogateRequest(BaseModel):
