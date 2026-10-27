@@ -11,6 +11,7 @@ from app.llm import (
     stream_interrogation,
     stream_judgment,
 )
+from app.match import MatchRequest, MatchResponse, run_match
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
 from app.projects import get_project
 from app.rate_limit import interact_limiter, llm_limiter
@@ -158,6 +159,19 @@ async def recruiter_interrogate(payload: InterrogateRequest, request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.post("/api/match", response_model=MatchResponse)
+def match_role(payload: MatchRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not llm_limiter.allow(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many match requests! Give the monkey a moment.",
+        )
+
+    return run_match(payload)
 
 
 @app.get("/api/excuses")

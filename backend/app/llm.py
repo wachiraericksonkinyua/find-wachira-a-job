@@ -19,7 +19,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DEFAULT_MODELS = {
     "groq": "qwen/qwen3.8-27b",
-    "gemini": "gemini-3.8-flash",
+    "gemini": "gemini-3.5-flash",
 }
 DEFAULT_BASE_URLS = {
     "groq": "https://api.groq.com/openai/v1",
@@ -168,7 +168,12 @@ def _extract_gemini_text(data: dict) -> str:
         raise LLMError("The model returned an unexpected reply.") from exc
 
 
-def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
+def _call_groq(
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int,
+    temperature: float,
+) -> str:
     model = _model_for("groq")
     response = httpx.post(
         f"{_base_url_for('groq')}/chat/completions",
@@ -179,7 +184,7 @@ def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.7,
+            "temperature": temperature,
             "max_tokens": max_tokens,
         },
         timeout=_timeout_seconds(),
@@ -188,7 +193,12 @@ def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
     return _extract_openai_text(response.json())
 
 
-def _call_gemini(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
+def _call_gemini(
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int,
+    temperature: float,
+) -> str:
     model = _model_for("gemini")
     response = httpx.post(
         f"{_base_url_for('gemini')}/models/{model}:generateContent",
@@ -197,7 +207,7 @@ def _call_gemini(system_prompt: str, user_prompt: str, max_tokens: int) -> str:
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {
-                "temperature": 0.7,
+                "temperature": temperature,
                 "maxOutputTokens": max_tokens,
             },
         },
@@ -218,6 +228,7 @@ def complete(
     user_prompt: str,
     *,
     max_tokens: int = 300,
+    temperature: float = 0.7,
 ) -> LLMReply:
     """Call the first configured provider and fall back to the next on failure.
 
@@ -234,7 +245,9 @@ def complete(
     failures: list[str] = []
     for provider in providers:
         try:
-            text = CALLERS[provider](system_prompt, user_prompt, max_tokens)
+            text = CALLERS[provider](
+                system_prompt, user_prompt, max_tokens, temperature
+            )
             return LLMReply(text=text, provider=provider, model=_model_for(provider))
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code if exc.response is not None else None

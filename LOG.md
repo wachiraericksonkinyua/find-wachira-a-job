@@ -68,3 +68,15 @@
 - PostgreSQL mode is opt-in: install with `pip install "psycopg[binary]"` and run `backend/sql/init_pgvector.sql` once; no new required dependency was added.
 - The local JSON cosine search remains the zero-config default and automatic fallback when PostgreSQL is unset, unreachable, missing `psycopg`, or not yet synced.
 - Fixed Day 11 leftovers: removed stray `//` notes from the `Interrogate.vue` template and deleted a duplicate `/api/projects` route/import from `main.py`.
+
+## Day 13: RAG Match Engine
+
+### 13A: Backend `POST /api/match`
+- Added `backend/app/match.py` with `MatchRequest`, `CitationItem`, and `MatchResponse` models.
+- `run_match()` syncs cached embeddings, retrieves the top 4 project chunks, and builds a strict RAG prompt wrapping the JD in `<untrusted_jd>` with only retrieved chunks plus resume skills.
+- The LLM is asked for strict JSON (`score`, `verdict`, `matched_skills`, `gaps`) at temperature `0.1`; `complete()` now accepts an optional temperature while keeping `0.7` as the default.
+- JSON parsing strips markdown fences and validates ranges. Malformed JSON, no LLM key, or provider failure falls back to a deterministic score (`0.65 × best vector similarity + 0.35 × skill coverage`).
+- If vector retrieval fails, citations fall back to keyword-overlap chunks from `iter_project_chunks()`.
+- Wired `POST /api/match` with `llm_limiter` rate limiting and `MatchResponse` validation.
+- Checked the live provider model lists and direct generation calls: Groq's `qwen/qwen3.8-27b` works; Gemini `gemini-2.5-flash` returns 404 ("no longer available to new users"), `gemini-3.8-flash` times out, and `gemini-3.5-flash` returns valid output. The default Gemini model is now `gemini-3.5-flash` (also updated in `.env` and `.env.example`).
+- Added `backend/tests/test_match.py` covering fenced JSON parsing, score clamping, deterministic fallback with vector citations, and keyword-citation fallback when retrieval fails. `pytest` passes 5 tests.
