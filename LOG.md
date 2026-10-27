@@ -52,3 +52,19 @@
 - 11B: Added "Ask Monkey About This Build" functionality per card using a new streaming endpoint (`/api/projects/{project_id}/inspect`) that grounds the LLM in real project data (fixing hallucinations).
 - 11B: Integrated `<Projects />` into `App.vue` and added a live stream display in the UI.
 - 11B: Cleaned up UI components by standardizing on CSS theme variables and consolidated API URL logic.
+
+## Day 12: Vector Embeddings & Retrieval (RAG)
+
+### 12A: Deterministic Chunk Embeddings & Cosine Search
+- Added `backend/app/embeddings.py` to embed every `iter_project_chunks()` chunk with Gemini `gemini-embedding-001` over `httpx`, requesting 768 dimensions with `outputDimensionality` (the model's native size is 3072).
+- `text-embedding-004` is retired and returns HTTP 404, so `gemini-embedding-001` is now the default; `GEMINI_EMBEDDING_MODEL` can override it, with `gemini-embedding-2` as the fallback model.
+- Added a SHA-256-keyed JSON cache (`backend/app/embeddings_cache.json`); `sync_embeddings()` only embeds uncached or incomplete chunks and prunes hashes for edited/deleted project chunks.
+- Cache records preserve `sha256`, `project_slug`, `project_title`, `section`, `text`, and `vector` for future RAG citations.
+- Added `search_similar_chunks(query, top_k=4)`, which embeds the query and ranks cached chunks with exact pure-Python cosine similarity.
+
+### 12B: Optional pgvector Dual-Mode Search
+- Added `backend/sql/init_pgvector.sql` with `CREATE EXTENSION vector`, the `project_chunks` table (`embedding vector(768)`), and an HNSW cosine index.
+- When `DATABASE_URL` is set and `psycopg` is installed, `sync_embeddings()` upserts chunks into `project_chunks` and prunes stale rows; `search_similar_chunks()` uses pgvector `1 - (embedding <=> query_vec)` for cosine ranking.
+- PostgreSQL mode is opt-in: install with `pip install "psycopg[binary]"` and run `backend/sql/init_pgvector.sql` once; no new required dependency was added.
+- The local JSON cosine search remains the zero-config default and automatic fallback when PostgreSQL is unset, unreachable, missing `psycopg`, or not yet synced.
+- Fixed Day 11 leftovers: removed stray `//` notes from the `Interrogate.vue` template and deleted a duplicate `/api/projects` route/import from `main.py`.

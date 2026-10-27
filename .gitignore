@@ -4,6 +4,7 @@ venv/
 __pycache__/
 .env
 backend/app/pet_state.json
+backend/app/embeddings_cache.json
 
 # React & Frontend
 node_modules/

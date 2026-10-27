@@ -80,9 +80,14 @@ function interrogate() {
 </script>
 
 <template>
+  <!-- class="mt-16" adds top margin for spacing. scroll-mt-24 adds top scroll margin so the fixed header does not obscure this section when jumping here via an anchor link. -->
+  <!-- <section> is a container. id="interrogate" lets the page link directly to this section, e.g. via a URL hash. -->
   <section id="interrogate" class="mt-16 scroll-mt-24">
+    <!-- <div> is a styling wrapper for the section content. .panel is the custom CSS class for the container styling. -->
+    <!-- p-6 md:p-8 sets the container padding, increasing it on medium screens and above. -->
     <div class="panel p-6 md:p-8">
       
+      <!-- flex flex-wrap items-end justify-between gap-3 mb-5 lays out the header: flexbox, wrapping items, aligning to the end, space between items, a gap, and bottom margin. -->
       <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <p class="font-pixel text-[10px] text-[#19E3FF] mb-2">RECRUITER TOOL // JD SCANNER</p>
