@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import Pet from './components/Pet.vue'
 import Projects from './components/Projects.vue'
+import Match from './components/Match.vue'
 import Interrogate from './components/Interrogate.vue'
 import ExcuseBuster from './components/ExcuseBuster.vue'
 
@@ -131,6 +132,7 @@ onMounted(async () => {
       <!-- The Pet Component (Passes down the professionalMode property) -->
       <Pet :professionalMode="professionalMode" />
       <Projects />
+      <Match />
       <Interrogate />
       <ExcuseBuster />
 

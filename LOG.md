@@ -80,3 +80,11 @@
 - Wired `POST /api/match` with `llm_limiter` rate limiting and `MatchResponse` validation.
 - Checked the live provider model lists and direct generation calls: Groq's `qwen/qwen3.8-27b` works; Gemini `gemini-2.5-flash` returns 404 ("no longer available to new users"), `gemini-3.8-flash` times out, and `gemini-3.5-flash` returns valid output. The default Gemini model is now `gemini-3.5-flash` (also updated in `.env` and `.env.example`).
 - Added `backend/tests/test_match.py` covering fenced JSON parsing, score clamping, deterministic fallback with vector citations, and keyword-citation fallback when retrieval fails. `pytest` passes 5 tests.
+
+## Day 14: RAG Match Score UI
+
+### 14A: `Match.vue`
+- Added `web/src/components/Match.vue` with a sci-fi panel, optional target role, JD textarea (20–6,000 chars), two one-click JD presets, loading/error states, and `POST /api/match`.
+- Renders the score as a large readout plus progress meter and verdict, side-by-side matched-skill and gap pills, and citation cards with project title, section badge, similarity percentage, and retrieved text.
+- Mounted `<Match />` in `App.vue` between `<Projects />` and `<Interrogate />`.
+- Verified the production frontend build with `npm run build`.
