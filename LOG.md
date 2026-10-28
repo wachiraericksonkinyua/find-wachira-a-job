@@ -107,3 +107,20 @@
 - Replaced the static `#book` section in `App.vue` with `<BookSection />`.
 - Fixed the `Projects.vue` null stream-state console error and added the missing favicon link so the browser console is clean.
 - Verified with `pytest`, `npm run build`, and a headless browser console check.
+
+## Day 16: Security Regression Tests & Live Architecture Telemetry
+
+### 16A: Backend Security Tests & `GET /api/telemetry`
+- Added `postgres_available()` to `embeddings.py`: a 2-second, 30-second-cached reachability check that never exposes connection strings.
+- Added read-only `GET /api/telemetry` returning `status`, `vector_store`, `indexed_chunks`, `llm_providers`, and the four active security controls.
+- Added `backend/tests/test_security.py` covering:
+  - OWASP LLM01 `<untrusted_jd>` isolation in `match._build_prompt()` and `llm.interrogation_prompt()`.
+  - `422` rejection for short and oversized inputs on `/api/match`, `/api/recruiter/interrogate`, and `/api/book`.
+  - Sliding-window limiter behavior plus a real `429` on `/api/pet/interact`.
+  - Telemetry contract (`12` chunks) and checks that no API keys or `postgresql://` strings leak.
+- Live telemetry returns `vector_store: "pgvector"` and `indexed_chunks: 12`. `pytest` passes 13 tests.
+
+### 16B: Frontend Telemetry Strip
+- `App.vue` now fetches `/api/telemetry` on mount with a `/health` fallback.
+- Added live proof pills for `VECTOR DB: PGVECTOR (12 CHUNKS)`, `LLM: GROQ + GEMINI FALLBACK`, and `SECURITY: OWASP LLM01 + RATE LIMITED`.
+- Verified `npm run build` and a headless browser check with zero console errors.

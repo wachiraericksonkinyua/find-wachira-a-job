@@ -12,6 +12,7 @@ import logging
 import math
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -34,6 +35,8 @@ DEFAULT_TIMEOUT_SECONDS = 30.0
 logger = logging.getLogger(__name__)
 
 _active_model: str | None = None
+_pg_status_cache: tuple[float, bool] | None = None
+PG_STATUS_TTL_SECONDS = 30.0
 
 
 class EmbeddingError(RuntimeError):
@@ -322,6 +325,39 @@ def _connect_postgres() -> Any | None:
     except Exception as exc:
         logger.warning("PostgreSQL is unreachable (%s); using the local cache.", exc)
         return None
+
+
+def postgres_available() -> bool:
+    """Cheap, cached reachability check for read-only telemetry."""
+    global _pg_status_cache
+
+    now = time.monotonic()
+    if (
+        _pg_status_cache is not None
+        and now - _pg_status_cache[0] < PG_STATUS_TTL_SECONDS
+    ):
+        return _pg_status_cache[1]
+
+    url = _database_url()
+    available = False
+    if url:
+        try:
+            import psycopg
+        except ImportError:
+            available = False
+        else:
+            kwargs: dict[str, Any] = {"connect_timeout": 2}
+            if _uses_transaction_pooler(url):
+                kwargs["prepare_threshold"] = None
+            try:
+                connection = psycopg.connect(url, **kwargs)
+                connection.close()
+                available = True
+            except Exception:
+                available = False
+
+    _pg_status_cache = (now, available)
+    return available
 
 
 def _pg_schema_statements() -> list[str]:

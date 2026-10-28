@@ -11,7 +11,8 @@ from app.bookings import (
     record_pet_lead,
     save_booking,
 )
-from app.projects import load_projects
+from app.embeddings import postgres_available
+from app.projects import get_project, iter_project_chunks, load_projects
 from app.excuses import PRESET_EXCUSES, ExcuseRequest
 from app.llm import (
     InterrogateRequest,
@@ -23,7 +24,6 @@ from app.llm import (
 )
 from app.match import MatchRequest, MatchResponse, run_match
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
-from app.projects import get_project
 from app.rate_limit import interact_limiter, llm_limiter
 from app.resume import load_resume_data, render_resume_pdf
 
@@ -42,9 +42,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+SECURITY_CONTROLS = [
+    "OWASP-LLM01-Untrusted-Delimiters",
+    "Server-Attached-RAG-Citations",
+    "Sliding-Window-Rate-Limit",
+    "Timing-Safe-Admin-Auth",
+]
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "db": True}
+
+
+@app.get("/api/telemetry")
+def telemetry():
+    return {
+        "status": "ok",
+        "vector_store": "pgvector" if postgres_available() else "local_json",
+        "indexed_chunks": sum(1 for _ in iter_project_chunks()),
+        "llm_providers": configured_providers(),
+        "security_controls": SECURITY_CONTROLS,
+    }
 
 
 @app.get("/api/resume")

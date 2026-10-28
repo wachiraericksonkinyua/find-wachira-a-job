@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import Pet from './components/Pet.vue'
 import Projects from './components/Projects.vue'
 import Match from './components/Match.vue'
@@ -12,17 +12,43 @@ const apiOnline = ref(false)
 const professionalMode = ref(false)
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const telemetry = ref(null)
+
+const vectorLabel = computed(() => {
+  if (!telemetry.value) return 'VECTOR DB: SYNCING...'
+  const chunks = telemetry.value.indexed_chunks ?? 0
+  return telemetry.value.vector_store === 'pgvector'
+    ? `VECTOR DB: PGVECTOR (${chunks} CHUNKS)`
+    : 'VECTOR DB: LOCAL COSINE'
+})
+
+const llmLabel = computed(() => {
+  const providers = telemetry.value?.llm_providers || []
+  if (!providers.length) return 'LLM: NOT CONFIGURED'
+  return `LLM: ${providers.join(' + ').toUpperCase()} FALLBACK`
+})
+
+const securityLabel = computed(() => 'SECURITY: OWASP LLM01 + RATE LIMITED')
 
 // Lifecycle Hook: Runs automatically when the component mounts on the screen
 onMounted(async () => {
   try {
-    // Ping your local FastAPI backend to verify it's awake
-    const res = await fetch(`${API_URL}/health`)
+    const res = await fetch(`${API_URL}/api/telemetry`)
+    if (!res.ok) throw new Error(`Telemetry failed (HTTP ${res.status})`)
     const data = await res.json()
-    apiOnline.value = (data.status === 'ok')
+    telemetry.value = data
+    apiOnline.value = data.status === 'ok'
   } catch (err) {
-    console.error('Backend offline:', err)
-    apiOnline.value = false
+    console.error('Telemetry unavailable, trying health check:', err)
+    try {
+      const res = await fetch(`${API_URL}/health`)
+      if (!res.ok) throw new Error(`Health failed (HTTP ${res.status})`)
+      const data = await res.json()
+      apiOnline.value = data.status === 'ok'
+    } catch (healthErr) {
+      console.error('Backend offline:', healthErr)
+      apiOnline.value = false
+    }
   }
 })
 </script>
@@ -54,7 +80,18 @@ onMounted(async () => {
 
     <!-- Main Content Area -->
     <main class="max-w-4xl mx-auto px-5 pt-10">
-      
+      <div class="mb-6 flex flex-wrap gap-2 font-mono-tech text-[10px]">
+        <span class="px-2 py-1 border border-[#19E3FF] bg-[#0D2230] text-[#19E3FF]">
+          {{ vectorLabel }}
+        </span>
+        <span class="px-2 py-1 border border-[#3DF5A6] bg-[#0D2A24] text-[#3DF5A6]">
+          {{ llmLabel }}
+        </span>
+        <span class="px-2 py-1 border border-[#FFC857] bg-[#2A2410] text-[#FFC857]">
+          {{ securityLabel }}
+        </span>
+      </div>
+
       <!-- 10-Second Recruiter Pitch (Above the Fold) -->
       <section class="mb-8">
         <p class="font-pixel text-[10px] text-[#19E3FF] mb-2">
