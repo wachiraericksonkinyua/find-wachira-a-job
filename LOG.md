@@ -88,3 +88,22 @@
 - Renders the score as a large readout plus progress meter and verdict, side-by-side matched-skill and gap pills, and citation cards with project title, section badge, similarity percentage, and retrieved text.
 - Mounted `<Match />` in `App.vue` between `<Projects />` and `<Interrogate />`.
 - Verified the production frontend build with `npm run build`.
+
+## Day 15: Supabase Live Sync, Interview Bookings & Admin Leads
+
+### 15A: Backend Bookings & Protected Admin Leads
+- Added `psycopg[binary]` to the backend and taught `embeddings.py` to prefer `DIRECT_URL`, strip `?pgbouncer=true`, reject non-Postgres URLs, and disable prepared statements when using port `6543`.
+- Extended `backend/sql/init_pgvector.sql` with `bookings` and `pet_leads` tables plus created-at indexes.
+- Added `backend/app/bookings.py`: atomic JSON persistence in `bookings.json`, optional PostgreSQL inserts, and JSON fallback for reads.
+- Added rate-limited `POST /api/book`, which stores the booking and drops the pet's desperation by 20 points via the `book` interaction.
+- Added `GET /api/admin/leads`, protected by `X-Admin-Key` and `secrets.compare_digest`, returning bookings and pet leads.
+- Mirrored pet interactions into `pet_leads`; added `ADMIN_API_KEY` to `.env`/`.env.example` and gitignored `bookings.json`.
+- Added `backend/tests/test_bookings.py` covering persistence, desperation relief, pet-lead capture, and admin-key rejection. `pytest` passes 8 tests.
+- Local cache remains the automatic fallback; live Supabase sync requires valid Postgres credentials.
+
+### 15B: Booking UI & Admin Leads Viewer
+- Added `web/src/components/BookSection.vue` with the validated interview form, quick email/LinkedIn buttons, glowing confirmation banner, and Pinia pet-state refresh after booking.
+- Added a collapsible `ADMIN // VIEW LEADS` viewer that stores the admin key in `sessionStorage` and renders bookings and pet URLs/leads.
+- Replaced the static `#book` section in `App.vue` with `<BookSection />`.
+- Fixed the `Projects.vue` null stream-state console error and added the missing favicon link so the browser console is clean.
+- Verified with `pytest`, `npm run build`, and a headless browser console check.

@@ -27,11 +27,20 @@ onMounted(async () => {
   }
 })
 
+// Read a stream field whether Vue has unwrapped the nested ref or not.
+const streamValue = (id, key) => {
+  const value = monkeyStates.value[id]?.[key]
+  return value && typeof value === 'object' && 'value' in value
+    ? value.value
+    : value
+}
+
 // Monkey judgment handler
 const askMonkey = (project) => {
   const stream = monkeyStates.value[project.id]
-  if (stream.streaming.value) stream.stopStream()
-  
+  if (!stream) return
+  if (streamValue(project.id, 'streaming')) stream.stopStream()
+
   stream.startStream(`${API_URL}/api/projects/${project.id}/inspect`)
 }
 </script>
@@ -72,14 +81,14 @@ const askMonkey = (project) => {
           @click="askMonkey(p)"
           class="w-full mb-3 py-2 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--bg)] font-bold font-mono-tech text-xs transition-colors"
         >
-          {{ monkeyStates[p.id].streaming.value ? 'MONKEY IS THINKING...' : 'ASK MONKEY ABOUT THIS BUILD' }}
+          {{ streamValue(p.id, 'streaming') ? 'MONKEY IS THINKING...' : 'ASK MONKEY ABOUT THIS BUILD' }}
         </button>
 
         <!-- Display area for the stream -->
-        <div v-if="monkeyStates[p.id].text.value || monkeyStates[p.id].streaming.value || monkeyStates[p.id].error.value" 
+        <div v-if="streamValue(p.id, 'text') || streamValue(p.id, 'streaming') || streamValue(p.id, 'error')" 
             class="mt-2 p-3 bg-[var(--panel-bg)] border border-[var(--border)] text-sm text-[var(--text-main)] italic">
-          <span v-if="monkeyStates[p.id].error.value" class="text-[var(--danger)]">{{ monkeyStates[p.id].error.value }}</span>
-          <span v-else>{{ monkeyStates[p.id].text.value || '...' }}</span>
+          <span v-if="streamValue(p.id, 'error')" class="text-[var(--danger)]">{{ streamValue(p.id, 'error') }}</span>
+          <span v-else>{{ streamValue(p.id, 'text') || '...' }}</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,16 @@
-from fastapi import FastAPI, HTTPException, Query, Request, Response
+import os
+import secrets
+
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from app.bookings import (
+    BookingRequest,
+    get_bookings,
+    get_pet_leads,
+    record_pet_lead,
+    save_booking,
+)
 from app.projects import load_projects
 from app.excuses import PRESET_EXCUSES, ExcuseRequest
 from app.llm import (
@@ -103,7 +113,38 @@ def pet_interact(payload: InteractRequest, request: Request):
         )
 
     # Pydantic has already validated and cleaned the body by now.
-    return record_interaction(payload.type, payload.note)
+    pet_state = record_interaction(payload.type, payload.note)
+    record_pet_lead(payload.type, payload.note)
+    return pet_state
+
+
+@app.post("/api/book")
+def book_interview(payload: BookingRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not interact_limiter.allow(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many bookings! Give the monkey a moment.",
+        )
+
+    booking = save_booking(payload)
+    pet_state = record_interaction(
+        "book", f"{payload.name} ({payload.company or 'Direct'})"
+    )
+    return {"booking": booking, "pet_state": pet_state}
+
+
+@app.get("/api/admin/leads")
+def admin_leads(
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    expected = os.getenv("ADMIN_API_KEY", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="Admin key is not configured.")
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, expected):
+        raise HTTPException(status_code=401, detail="Invalid admin key.")
+
+    return {"bookings": get_bookings(), "pet_leads": get_pet_leads()}
 
 
 @app.get("/api/llm/status")

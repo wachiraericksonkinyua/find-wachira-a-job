@@ -14,6 +14,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 from dotenv import load_dotenv
@@ -269,8 +270,34 @@ def _vector_literal(vector: list[float]) -> str:
 
 
 def _database_url() -> str | None:
-    url = os.getenv("DATABASE_URL", "").strip()
-    return url or None
+    """Return a psycopg-safe Postgres URL, preferring DIRECT_URL.
+
+    Supabase's Prisma snippets can include ``?pgbouncer=true`` and port 6543.
+    psycopg rejects that unknown URI parameter, so it is removed here.
+    """
+    for name in ("DIRECT_URL", "DATABASE_URL"):
+        candidate = os.getenv(name, "").strip()
+        if not candidate:
+            continue
+        parsed = urlsplit(candidate)
+        if parsed.scheme not in ("postgres", "postgresql"):
+            logger.warning(
+                "%s is not a PostgreSQL connection string; ignoring it.", name
+            )
+            continue
+        query = [
+            (key, value)
+            for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if key.lower() != "pgbouncer"
+        ]
+        return urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment)
+        )
+    return None
+
+
+def _uses_transaction_pooler(url: str) -> bool:
+    return urlsplit(url).port == 6543
 
 
 def _connect_postgres() -> Any | None:
@@ -284,8 +311,12 @@ def _connect_postgres() -> Any | None:
             "DATABASE_URL is set but psycopg is not installed; using the local cache."
         )
         return None
+    connect_kwargs: dict[str, Any] = {"connect_timeout": 5}
+    if _uses_transaction_pooler(url):
+        # PgBouncer transaction pooling cannot reuse prepared statements.
+        connect_kwargs["prepare_threshold"] = None
     try:
-        connection = psycopg.connect(url, connect_timeout=5)
+        connection = psycopg.connect(url, **connect_kwargs)
         connection.autocommit = True
         return connection
     except Exception as exc:

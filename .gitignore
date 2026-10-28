@@ -10,3 +10,4 @@ backend/app/embeddings_cache.json
 node_modules/
 dist/
 .env.local
+backend/app/bookings.json

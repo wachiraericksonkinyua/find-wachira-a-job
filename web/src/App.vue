@@ -5,6 +5,7 @@ import Projects from './components/Projects.vue'
 import Match from './components/Match.vue'
 import Interrogate from './components/Interrogate.vue'
 import ExcuseBuster from './components/ExcuseBuster.vue'
+import BookSection from './components/BookSection.vue'
 
 // Reactive state variables
 const apiOnline = ref(false)
@@ -138,34 +139,7 @@ onMounted(async () => {
 
       <!-- Booking / contact target for the sticky CTA and the pet menu -->
 
-      <section id="book" class="mt-16 scroll-mt-24">
-        <div class="panel p-6 md:p-8 text-center">
-          <p class="font-pixel text-[10px] text-[#19E3FF] mb-3">READY TO TALK?</p>
-          <h2 class="font-orbitron text-2xl md:text-3xl font-bold mb-3">
-            BOOK AN INTERVIEW
-          </h2>
-          <p class="text-[#8FA6C8] max-w-xl mx-auto mb-5">
-            Send the role, the team, or a time that works. The resume download is always
-            generated from the latest source data.
-          </p>
-          <div class="flex flex-wrap justify-center gap-2">
-            <a
-              href="mailto:ericksonkinyua681@gmail.com?subject=Interview%20request"
-              class="panel inline-flex items-center gap-2 px-4 py-2 font-mono-tech text-xs text-[#06101F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
-              style="background: var(--leaf);"
-            >
-              EMAIL WACHIRA
-            </a>
-            <a
-              :href="`${API_URL}/api/resume`"
-              download="wachira-erickson-kinyua-resume.pdf"
-              class="panel inline-flex items-center gap-2 px-4 py-2 font-mono-tech text-xs text-[#E6F1FF] hover:border-[#19E3FF] hover:text-[#19E3FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
-            >
-              DOWNLOAD RESUME
-            </a>
-          </div>
-        </div>
-      </section>
+      <BookSection />
     </main>
 
     <!-- Sticky Floating "Book Interview" Button -->
