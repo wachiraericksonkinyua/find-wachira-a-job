@@ -124,3 +124,19 @@
 - `App.vue` now fetches `/api/telemetry` on mount with a `/health` fallback.
 - Added live proof pills for `VECTOR DB: PGVECTOR (12 CHUNKS)`, `LLM: GROQ + GEMINI FALLBACK`, and `SECURITY: OWASP LLM01 + RATE LIMITED`.
 - Verified `npm run build` and a headless browser check with zero console errors.
+
+## Day 17: Frontend Test Suite (Vitest + Vue Test Utils)
+
+### 17A: Harness
+- Added `vitest` + `@vue/test-utils` + `jsdom` + `@vitest/coverage-v8` to `web/package.json`.
+- Added `vitest.config.js`: jsdom environment, `tests/setup.js`, and the `@ -> src` alias so tests import components the same way production does.
+- `tests/setup.js` stubs the browser APIs jsdom lacks (`matchMedia`, `ResizeObserver`, `IntersectionObserver`), installs a global `fetch` mock, and filters expected error-path logging so the suite output stays clean.
+- Added `npm test`, `npm run test:watch`, and `npm run test:coverage`; ignored `web/coverage` in git.
+
+### 17B: Store & Component Coverage
+- `tests/stores/pet.test.js` (14 tests): Pinia defaults, state application, unknown-field rejection, `fetchState()` offline/429/422 paths, `interact()` payload shape (note vs no-note), forced happy mood, and string/array `detail` handling.
+- `tests/components/Match.test.js` (28 tests): validation boundaries, presets, reset, POST payload, pending state, score/verdict/skill/gap/citation rendering, score colors, and API/network/malformed-JSON errors.
+- `tests/components/Interrogate.test.js` (22 tests): validation, presets, SSE token streaming through `useStream`, stop control, and API/network errors.
+- `tests/components/ExcuseBuster.test.js` (8 tests): excuse loading, selection enabling, streamed debunk output, and stream errors.
+- `fetch` is mocked at the boundary, so the suite runs with no backend or provider keys.
+- `npm test` passes 72 tests across 4 files; `npm run build` still succeeds.
