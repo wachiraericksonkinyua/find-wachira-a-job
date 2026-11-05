@@ -1,0 +1,43 @@
+name: Keep Alive
+
+on:
+  schedule:
+    # Daily at 08:00 UTC.
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping backend health endpoint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for BACKEND_HEALTH_URL
+        id: config
+        env:
+          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+        run: |
+          if [ -z "$BACKEND_HEALTH_URL" ]; then
+            echo "::notice::BACKEND_HEALTH_URL is not set; skipping keep-alive ping."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Point the secret at /api/telemetry instead of /health to also warm
+      # Postgres: telemetry calls postgres_available(), which opens a
+      # short-lived database connection.
+      - name: Curl health endpoint
+        if: steps.config.outputs.configured == 'true'
+        env:
+          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 5 --max-time 30 "$BACKEND_HEALTH_URL"

@@ -183,7 +183,7 @@ Vite runs at `http://127.0.0.1:5173` and defaults to the local API. Override wit
 ### Tests
 
 ```bash
-cd backend && pytest -q          # 13 backend tests
+cd backend && pytest -q          # 16 backend tests (includes secret scan)
 cd web && npm test               # 72 Vitest tests
 cd web && npm run build          # production build
 ```
@@ -216,8 +216,16 @@ Import the repo, set **Root Directory** to `web`, and let Vercel detect Vite.
 
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
 
+- **secret-scan** — checks that `.env`, `bookings.json`, and `pet_state.json`
+  stay untracked/gitignored and scans tracked files for `gsk_`, `AIza`, and
+  credentialed Postgres URL patterns
 - **backend** — Python 3.12, installs `requirements.txt` + `pytest`, runs `pytest -q`
 - **frontend** — Node 20, `npm ci` and `npm run build`
+
+`.github/workflows/keepalive.yml` pings `secrets.BACKEND_HEALTH_URL` daily at
+08:00 UTC (and on manual dispatch) to keep the Render service and Supabase
+project awake. Point it at `/api/telemetry` to also warm the database
+connection. The job skips cleanly when the secret is unset.
 
 ---
 
@@ -225,7 +233,8 @@ Import the repo, set **Root Directory** to `web`, and let Vercel detect Vite.
 
 ```
 .
-├── .github/workflows/ci.yml      CI: backend tests + frontend build
+├── .github/workflows/ci.yml      CI: secret scan + backend tests + frontend build
+├── .github/workflows/keepalive.yml  Daily Render/Supabase health ping
 ├── render.yaml                   Render Blueprint (FastAPI)
 ├── THREAT_MODEL.md               OWASP LLM Top 10 mapping
 ├── backend/

@@ -163,3 +163,28 @@
 - Added `THREAT_MODEL.md` mapping defenses to the OWASP LLM Top 10 (2025): prompt injection delimiters, secret handling, supply chain, corpus integrity, output validation, excessive agency, prompt leakage, vector weaknesses, misinformation, and resource consumption.
 - Documented residual risks and next steps: distributed rate limiting, dependency scanning, injection regression tests, admin-route limiting, and security headers.
 - Verified `pytest -q` (13 passed), `npm run build`, and YAML/JSON parsing for the new deployment and CI configs.
+
+## Day 19: Secret Scanning & Keep-Alive Automation
+
+### 19A: Repository Secret Guards
+- Added `backend/tests/test_secrets.py` with three dependency-free guards:
+  - `backend/.env`, `backend/app/bookings.json`, and `backend/app/pet_state.json` are not tracked by Git.
+  - All three paths are confirmed ignored via `git check-ignore`.
+  - Tracked files contain no real `gsk_...` Groq keys, `AIza...` Google keys, or Postgres URLs with inline credentials; documentation placeholders are filtered out.
+- Added a fast `secret-scan` job to `.github/workflows/ci.yml` that installs only `pytest` and runs the guard before the backend/frontend jobs.
+- Confirmed `.env` and runtime JSON files have never been added to Git history.
+
+### 19B: Daily Keep-Alive Workflow
+- Added `.github/workflows/keepalive.yml`, triggered by `schedule` at `0 8 * * *` (08:00 UTC) and `workflow_dispatch`, with least-privilege `contents: read` permissions.
+- The job reads `secrets.BACKEND_HEALTH_URL`; when unset it emits a notice and skips, so the workflow never fails on a fresh fork.
+- When configured it runs `curl -fsSL --retry 3 --retry-delay 5 --max-time 30` against the URL, keeping Render (and, via `/api/telemetry`, Supabase) awake.
+- Documented the workflow and the `/api/telemetry` recommendation in `README.md`.
+
+## Day 20: Final v1 Audit
+
+- Ran `git status` and `git ls-files`: `backend/.env`, `backend/app/bookings.json`, and `backend/app/pet_state.json` are absent from the index and confirmed gitignored.
+- Backend: `pytest -q` passes **16 tests** (13 existing + 3 secret guards).
+- Frontend: `npm test -- --run` passes **72 tests** across 4 files; `npm run build` succeeds.
+- Validated both workflows parse as YAML and expose the expected jobs and triggers (`secret-scan` + `backend` + `frontend`; `ping` on schedule/dispatch).
+- Updated `README.md` with the secret-scan job, keep-alive workflow, and current test count.
+- Committed the v1 finalization as `feat(day-19-20): add secret scan test, keep-alive workflow, and finalize v1`.
