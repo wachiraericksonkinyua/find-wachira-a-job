@@ -29,14 +29,31 @@ from app.resume import load_resume_data, render_resume_pdf
 
 app = FastAPI(title="Find Wachira a Job API", version="0.1.0")
 
+LOCAL_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+
+
+def allowed_origins() -> list[str]:
+    """Local dev origins plus any comma-separated production domains.
+
+    ``ALLOWED_ORIGINS`` is optional: when unset, only the local Vite origins
+    are trusted, so a misconfigured deploy never falls back to ``*``.
+    """
+    origins = list(LOCAL_DEV_ORIGINS)
+    for origin in os.getenv("ALLOWED_ORIGINS", "").split(","):
+        origin = origin.strip().rstrip("/")
+        if origin and origin not in origins:
+            origins.append(origin)
+    return origins
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: find-wachira-a-job-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: LLM_TIMEOUT_SECONDS
+        value: "20"
+      # Comma-separated frontend origins, e.g. https://find-wachira.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # Required by GET /api/admin/leads (X-Admin-Key header).
+      - key: ADMIN_API_KEY
+        sync: false
+      # Optional Supabase/Postgres. Backend falls back to local JSON when unset.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false

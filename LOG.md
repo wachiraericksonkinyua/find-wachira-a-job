@@ -140,3 +140,26 @@
 - `tests/components/ExcuseBuster.test.js` (8 tests): excuse loading, selection enabling, streamed debunk output, and stream errors.
 - `fetch` is mocked at the boundary, so the suite runs with no backend or provider keys.
 - `npm test` passes 72 tests across 4 files; `npm run build` still succeeds.
+
+## Day 18: CI/CD Pipeline, Deployment Configs & Recruiter-Grade Docs
+
+### 18A: GitHub Actions CI
+- Added `.github/workflows/ci.yml`, triggered on `push` and `pull_request` to `main`, with least-privilege `contents: read` permissions and concurrency cancellation.
+- **Backend job:** Python 3.12 with pip caching, installs `backend/requirements.txt` + `pytest`, runs `pytest -q` from `backend/`.
+- **Frontend job:** Node 20 with npm caching, runs `npm ci` and `npm run build` from `web/`.
+- Verified the same commands locally: `13 passed` and Vite production build succeeds.
+
+### 18B: Render & Vercel Deployment
+- Added root `render.yaml`: Python web service, `rootDir: backend`, `pip install -r requirements.txt`, `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, health check at `/health`, and `sync: false` prompts for provider keys, admin key, CORS origins, and optional Postgres URLs.
+- Added `web/vercel.json` with Vite framework detection and SPA rewrites to `index.html`.
+
+### 18C: Production CORS
+- Extracted `allowed_origins()` in `main.py`: always allows the four local Vite origins, then merges any comma-separated domains from `ALLOWED_ORIGINS`, stripping whitespace and trailing slashes.
+- The allowlist never falls back to `*`; an unset variable trusts local development only.
+- Documented `ALLOWED_ORIGINS` in `backend/.env.example`.
+
+### 18D: README & Threat Model
+- Added a root `README.md` with the architecture diagram, key features (deterministic PDF resume, RAG Match Engine, SSE streaming, pet desperation model, bookings), API table, security table, quickstart, deployment steps, and project layout.
+- Added `THREAT_MODEL.md` mapping defenses to the OWASP LLM Top 10 (2025): prompt injection delimiters, secret handling, supply chain, corpus integrity, output validation, excessive agency, prompt leakage, vector weaknesses, misinformation, and resource consumption.
+- Documented residual risks and next steps: distributed rate limiting, dependency scanning, injection regression tests, admin-route limiting, and security headers.
+- Verified `pytest -q` (13 passed), `npm run build`, and YAML/JSON parsing for the new deployment and CI configs.
