@@ -189,7 +189,7 @@ def _parse_match_json(text: str) -> dict[str, Any] | None:
         return None
 
     raw_score = data.get("score")
-    if isinstance(raw_score, bool):
+    if raw_score is None or isinstance(raw_score, bool):
         return None
     try:
         score = int(round(float(raw_score)))
