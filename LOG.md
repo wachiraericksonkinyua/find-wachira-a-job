@@ -188,3 +188,40 @@
 - Validated both workflows parse as YAML and expose the expected jobs and triggers (`secret-scan` + `backend` + `frontend`; `ping` on schedule/dispatch).
 - Updated `README.md` with the secret-scan job, keep-alive workflow, and current test count.
 - Committed the v1 finalization as `feat(day-19-20): add secret scan test, keep-alive workflow, and finalize v1`.
+
+## Day 21: Phase 6 — AI Red Team Lab (Backend + Frontend + 2.5D Landing)
+
+### 21A: Backend Sandbox, Attack Logging, Leaderboard & Security Report
+- Added `backend/app/redteam.py` with four isolated prompt-injection CTF levels:
+  - Level 1 "The Chatty Intern" (100 pts): system prompt only.
+  - Level 2 "The Input Filter Guard" (200 pts): direct-keyword blocklist plus `<untrusted_attack>` wrapping.
+  - Level 3 "The Output Sanitizer" (300 pts): literal flag-shape redaction, beatable through Base64/hex/reversed/character-spaced encoding.
+  - Level 4 "The Checker Model Fortress" (500 pts): prompt-intent checker plus reply safety checker, beatable through an authorized security-audit frame with an encoded digest.
+- Each level has deterministic offline responses, so the sandbox works without any LLM key and cannot touch real provider keys, tools, or user data.
+- Added anonymized attempt logging with SHA-256 hashed IPs and prompt hashes, a nicknames-only leaderboard, `secrets.compare_digest` flag verification, sanitized nicknames, and no double-awarding of the same level.
+- PostgreSQL support uses `redteam_attempts` and `redteam_scores`; the zero-config fallback is the atomic `backend/app/redteam_state.json` (now gitignored).
+- Added FastAPI routes:
+  - `GET /api/redteam/levels` (never returns flags)
+  - `POST /api/redteam/attack/{level}` (1–1,000 chars, rate-limited)
+  - `POST /api/redteam/submit`
+  - `GET /api/redteam/leaderboard`
+  - `GET /api/security/report` (attempts, blocked attacks, breaks, per-level stats, OWASP LLM coverage)
+- Added `redteam_limiter` at 30 requests/minute per IP and exposed `Isolated-Red-Team-CTF-Sandbox` in telemetry security controls.
+- Added `backend/tests/test_redteam.py` covering flag leakage, Level 2 blocking, Level 3 redaction and encoding bypass, Level 4 checker/audit behavior, input validation, wrong/right flag submission, nickname sanitization, duplicate submissions, and security-report telemetry. `pytest -q` passes **27 tests**.
+
+### 21B: Red Team Lab UI, Leaderboard, Findings Report & Promptfoo
+- Added `web/src/components/RedTeamLab.vue` with:
+  - Four selectable level cards showing OWASP tag, defense type, difficulty, and points.
+  - An attack console with one-click Direct Override, Translation Bypass, Acrostic/Hex Extraction, and Auditor Framing payloads.
+  - A flag submission form with nickname handling and live score feedback.
+  - A live nicknames-only leaderboard and a live security report with block rate, per-level telemetry, and OWASP LLM coverage.
+- Mounted `<RedTeamLab />` in `App.vue` between the Excuse Buster and the Book Interview section, and added quick `PROJECTS`, `/LAB`, and `BOOK` jumps to the header.
+- Added `web/src/components/__tests__/RedTeamLab.spec.ts` and extended the Vitest include glob to pick up `src/**/__tests__`. `npm test -- --run` passes **79 tests** across 5 files.
+
+### 21C: 2.5D Cinematic Landing Scene
+- Added `web/src/components/CinematicLanding.vue`: a four-slide `SYSTEM // SECURE_BOOT_v4.1` terminal (identity, workspace, security, mission) with keyboard arrows, dots, pause-on-hover, and reduced-motion support.
+- Built a 2.5D desk-and-wall scene with perspective floor, monitor, keyboard, mug, poster panels, and four hotspots: `CASE_FILES` (`#projects`), `/LAB` (`#lab`), `BOOK_CALL` (`#book`), and `RESUME.pdf` (PDF download).
+- Mounted the scene at the top of `App.vue`; hotspot and header navigation use smooth scrolling, respecting `prefers-reduced-motion`.
+- Added root `promptfooconfig.yaml` with HTTP providers for all four levels plus guard assertions against key/stack-trace leaks.
+- Added `LEARNING_RESOURCES.md`, a saved Days 16–44 study library with official docs, hands-on labs, and beginner explanations.
+- Verified `pytest -q` (27 passed), `npm test -- --run` (79 passed), and `npm run build`.

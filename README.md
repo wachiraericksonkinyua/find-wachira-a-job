@@ -17,7 +17,8 @@ meter. Built with **FastAPI**, **Vue 3**, **pgvector**, and an ordered
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Vue 3 + Vite + Pinia + Tailwind (Vercel)                        │
-│  Pet · Projects · Match · Interrogate · ExcuseBuster · Book      │
+│  Cinematic 2.5D hero · Pet · Projects · Match · Interrogate      │
+│  ExcuseBuster · RedTeamLab · Book                                │
 └───────────────────────────────┬──────────────────────────────────┘
                                 │ fetch + Server-Sent Events
 ┌───────────────────────────────▼──────────────────────────────────┐
@@ -29,6 +30,8 @@ meter. Built with **FastAPI**, **Vue 3**, **pgvector**, and an ordered
 │  /api/pet/*           atomic JSON state + sliding-window limits  │
 │  /api/book            bookings + pet relief                      │
 │  /api/admin/leads     constant-time admin key                    │
+│  /api/redteam/*       4-level isolated prompt-injection CTF      │
+│  /api/security/report live attack telemetry + OWASP coverage     │
 └───────────────┬──────────────────────────────┬───────────────────┘
                 │                              │
       ┌─────────▼─────────┐          ┌─────────▼──────────────┐
@@ -123,6 +126,11 @@ configured, local JSON otherwise) and gives the pet 20 relief points.
 | `POST` | `/api/book` | Interview booking |
 | `GET` | `/api/admin/leads` | Protected leads (admin key) |
 | `GET` | `/api/llm/status` | Which providers are configured |
+| `GET` | `/api/redteam/levels` | Four CTF levels and defenses (never flags) |
+| `POST` | `/api/redteam/attack/{level}` | Rate-limited, isolated attack simulation |
+| `POST` | `/api/redteam/submit` | Timing-safe flag verification + leaderboard |
+| `GET` | `/api/redteam/leaderboard` | Nicknames-only scores |
+| `GET` | `/api/security/report` | Attack attempts, blocks, solves, OWASP coverage |
 
 Interactive docs: `http://127.0.0.1:8000/docs`
 
@@ -136,9 +144,10 @@ See [THREAT_MODEL.md](THREAT_MODEL.md) for the full OWASP LLM Top 10 mapping.
 | --- | --- |
 | Prompt injection (LLM01) | Untrusted input wrapped in `<untrusted_*>` delimiters; model told to treat it as data |
 | Grounded citations | Retrieval metadata attached server-side, never model-generated |
-| Abuse / cost limits (LLM10) | Sliding-window limiter, 5 requests / 60 s / IP on LLM routes |
-| Input bounds | JD ≤ 6,000 chars, notes ≤ 280, role/company ≤ 120 |
+| Abuse / cost limits (LLM10) | Sliding-window limiter, 5 requests / 60 s / IP on LLM routes; 30 / 60 s in the CTF |
+| Input bounds | JD ≤ 6,000 chars, notes ≤ 280, role/company ≤ 120, attacks ≤ 1,000 |
 | Admin auth | `secrets.compare_digest` against `ADMIN_API_KEY` |
+| Red-team sandbox | Four isolated fake-flag levels, hashed-IP attempt logs, nickname sanitization, timing-safe flag checks |
 | Secret hygiene | Keys stay server-side; telemetry returns provider names only |
 | CORS | Explicit local origins + `ALLOWED_ORIGINS` allowlist, never `*` |
 | PII guard | Third-party emails rejected in intro/know_person notes |
@@ -183,8 +192,8 @@ Vite runs at `http://127.0.0.1:5173` and defaults to the local API. Override wit
 ### Tests
 
 ```bash
-cd backend && pytest -q          # 16 backend tests (includes secret scan)
-cd web && npm test               # 72 Vitest tests
+cd backend && pytest -q          # 27 backend tests (includes secret scan)
+cd web && npm test               # 79 Vitest tests
 cd web && npm run build          # production build
 ```
 
@@ -236,6 +245,8 @@ connection. The job skips cleanly when the secret is unset.
 ├── .github/workflows/ci.yml      CI: secret scan + backend tests + frontend build
 ├── .github/workflows/keepalive.yml  Daily Render/Supabase health ping
 ├── render.yaml                   Render Blueprint (FastAPI)
+├── promptfooconfig.yaml          Automated red-team eval for the CTF levels
+├── LEARNING_RESOURCES.md         Saved Days 16–44 study library
 ├── THREAT_MODEL.md               OWASP LLM Top 10 mapping
 ├── backend/
 │   ├── app/
@@ -245,6 +256,7 @@ connection. The job skips cleanly when the secret is unset.
 │   │   ├── embeddings.py         Chunking, embeddings, pgvector/local search
 │   │   ├── pet.py                Desperation state model
 │   │   ├── bookings.py           Bookings + admin leads
+│   │   ├── redteam.py            4-level CTF, logs, leaderboard, report
 │   │   ├── excuses.py            Presets + TTL cache
 │   │   ├── resume.py             Deterministic fpdf2 renderer
 │   │   └── rate_limit.py         Sliding-window limiter
