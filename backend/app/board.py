@@ -302,14 +302,18 @@ def admin_stats() -> dict[str, Any]:
         approved = sum(1 for entry in entries if entry.get("status") == "approved")
         pending = sum(1 for entry in entries if entry.get("status") == "pending")
 
+    total_bookings = len(get_bookings())
+    redteam_stats = security_report()
     return {
         "events": counts,
         "total_events": sum(counts.values()),
-        "total_bookings": len(get_bookings()),
+        "total_bookings": total_bookings,
+        "bookings": total_bookings,
         "board": {
             "approved": approved,
             "pending": pending,
             "total": len(entries),
         },
-        "redteam": security_report(),
+        "redteam": redteam_stats,
+        "redteam_stats": redteam_stats,
     }
