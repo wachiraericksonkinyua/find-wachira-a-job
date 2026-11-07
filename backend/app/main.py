@@ -4,6 +4,26 @@ import secrets
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from app.apply_assistant import (
+    AnalyzeRequest,
+    DraftRequest,
+    JobStatusUpdate,
+    analyze_job,
+    draft_application,
+    list_jobs,
+    update_job_status,
+)
+from app.board import (
+    BoardSubmission,
+    EventRequest,
+    TakedownRequest,
+    admin_stats,
+    approve_entry,
+    list_approved,
+    record_event,
+    submit_entry,
+    takedown_entry,
+)
 from app.bookings import (
     BookingRequest,
     get_bookings,
@@ -24,7 +44,14 @@ from app.llm import (
 )
 from app.match import MatchRequest, MatchResponse, run_match
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
-from app.rate_limit import interact_limiter, llm_limiter, redteam_limiter
+from app.rate_limit import (
+    analytics_limiter,
+    apply_limiter,
+    board_limiter,
+    interact_limiter,
+    llm_limiter,
+    redteam_limiter,
+)
 from app.redteam import (
     AttackRequest,
     FlagSubmission,
@@ -68,12 +95,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def require_admin_key(x_admin_key: str | None) -> None:
+    expected = os.getenv("ADMIN_API_KEY", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="Admin key is not configured.")
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, expected):
+        raise HTTPException(status_code=401, detail="Invalid admin key.")
+
 SECURITY_CONTROLS = [
     "OWASP-LLM01-Untrusted-Delimiters",
     "Server-Attached-RAG-Citations",
     "Sliding-Window-Rate-Limit",
     "Timing-Safe-Admin-Auth",
     "Isolated-Red-Team-CTF-Sandbox",
+    "Moderated-Peer-Talent-Board",
+    "SSRF-Private-IP-Block",
+    "Human-in-the-Loop-Apply-Assistant",
 ]
 
 
@@ -184,12 +222,7 @@ def book_interview(payload: BookingRequest, request: Request):
 def admin_leads(
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
 ):
-    expected = os.getenv("ADMIN_API_KEY", "").strip()
-    if not expected:
-        raise HTTPException(status_code=503, detail="Admin key is not configured.")
-    if not x_admin_key or not secrets.compare_digest(x_admin_key, expected):
-        raise HTTPException(status_code=401, detail="Invalid admin key.")
-
+    require_admin_key(x_admin_key)
     return {"bookings": get_bookings(), "pet_leads": get_pet_leads()}
 
 
@@ -329,3 +362,107 @@ def redteam_leaderboard():
 @app.get("/api/security/report")
 def security_report():
     return build_security_report()
+
+@app.post("/api/events", status_code=204)
+def submit_event(payload: EventRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not analytics_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many analytics events.")
+    record_event(payload)
+    return Response(status_code=204)
+
+
+@app.get("/api/admin/stats")
+def admin_stats_view(
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return admin_stats()
+
+
+@app.get("/api/board")
+def get_board():
+    return list_approved()
+
+
+@app.post("/api/board/submit")
+def submit_board_entry(payload: BoardSubmission, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not board_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many board submissions.")
+    return submit_entry(payload)
+
+
+@app.post("/api/board/takedown")
+def takedown_board_entry(payload: TakedownRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not board_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many takedown requests.")
+    try:
+        return takedown_entry(payload.id, payload.token)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Board entry not found.") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Invalid takedown token.") from None
+
+
+@app.post("/api/admin/board/{entry_id}/approve")
+def approve_board_entry(
+    entry_id: str,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    try:
+        return approve_entry(entry_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Board entry not found.") from None
+
+
+@app.post("/api/apply/analyze")
+def apply_analyze(payload: AnalyzeRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not apply_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many apply-assistant requests.")
+
+    try:
+        return analyze_job(payload.url, payload.raw_jd)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+
+
+@app.post("/api/apply/draft")
+def apply_draft(payload: DraftRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not apply_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many draft requests.")
+
+    try:
+        return draft_application(
+            job_id=payload.job_id,
+            url=payload.url,
+            raw_jd=payload.raw_jd,
+            title=payload.title,
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Tracked job not found.") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+
+
+@app.get("/api/apply/jobs")
+def apply_jobs():
+    return list_jobs()
+
+
+@app.put("/api/apply/jobs/{job_id}")
+def apply_job_status(job_id: str, payload: JobStatusUpdate):
+    try:
+        return update_job_status(job_id, payload.status)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Tracked job not found.") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None

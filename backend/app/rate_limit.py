@@ -62,3 +62,12 @@ llm_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60)
 # The red-team sandbox is offline and cheap, but still gets a per-IP cap so a
 # single visitor cannot hammer the leaderboard/telemetry bookkeeping.
 redteam_limiter = SlidingWindowLimiter(max_requests=30, window_seconds=60)
+
+# Anonymous analytics should be cheap and high-volume, but still bounded.
+analytics_limiter = SlidingWindowLimiter(max_requests=120, window_seconds=60)
+
+# Public board writes and takedowns are cheap; keep spam bounded.
+board_limiter = SlidingWindowLimiter(max_requests=20, window_seconds=60)
+
+# Job fetching and drafting can call an LLM, so keep this tighter.
+apply_limiter = SlidingWindowLimiter(max_requests=10, window_seconds=60)

@@ -6,6 +6,8 @@ __pycache__/
 backend/app/pet_state.json
 backend/app/embeddings_cache.json
 backend/app/redteam_state.json
+backend/app/board_state.json
+backend/app/apply_jobs.json
 
 # React & Frontend
 node_modules/

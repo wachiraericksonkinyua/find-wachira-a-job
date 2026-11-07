@@ -6,8 +6,11 @@ import Match from './components/Match.vue'
 import Interrogate from './components/Interrogate.vue'
 import ExcuseBuster from './components/ExcuseBuster.vue'
 import RedTeamLab from './components/RedTeamLab.vue'
+import TalentBoard from './components/TalentBoard.vue'
+import ApplyAssistant from './components/ApplyAssistant.vue'
 import CinematicLanding from './components/CinematicLanding.vue'
 import BookSection from './components/BookSection.vue'
+import { trackEvent } from './composables/useAnalytics'
 
 // Reactive state variables
 const apiOnline = ref(false)
@@ -34,6 +37,7 @@ const securityLabel = computed(() => 'SECURITY: OWASP LLM01 + RATE LIMITED')
 
 // Lifecycle Hook: Runs automatically when the component mounts on the screen
 onMounted(async () => {
+  trackEvent('page_view')
   try {
     const res = await fetch(`${API_URL}/api/telemetry`)
     if (!res.ok) throw new Error(`Telemetry failed (HTTP ${res.status})`)
@@ -83,6 +87,18 @@ onMounted(async () => {
               class="px-2 py-1 border border-[#FF4D8D]/70 bg-[#2A1220] font-mono-tech text-[10px] text-[#FF4D8D] hover:bg-[#FF4D8D] hover:text-[#06101F]"
             >
               /LAB
+            </a>
+            <a
+              href="#talent"
+              class="px-2 py-1 border border-[#22345E] bg-[#0D1630] font-mono-tech text-[10px] text-[#8FA6C8] hover:border-[#3DF5A6] hover:text-[#3DF5A6]"
+            >
+              TALENT
+            </a>
+            <a
+              href="#apply"
+              class="px-2 py-1 border border-[#22345E] bg-[#0D1630] font-mono-tech text-[10px] text-[#8FA6C8] hover:border-[#FFC857] hover:text-[#FFC857]"
+            >
+              APPLY
             </a>
             <a
               href="#book"
@@ -181,6 +197,7 @@ onMounted(async () => {
             :href="`${API_URL}/api/resume`"
             download="wachira-erickson-kinyua-resume.pdf"
             aria-label="Download resume"
+            @click="trackEvent('cv_open')"
             class="group inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19E3FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1F]"
           >
             <span class="panel inline-flex items-center gap-2 px-3 py-2 font-mono-tech text-xs text-[#E6F1FF] transition-colors group-hover:border-[#19E3FF] group-hover:text-[#19E3FF]">
@@ -197,10 +214,12 @@ onMounted(async () => {
       <!-- The Pet Component (Passes down the professionalMode property) -->
       <Pet :professionalMode="professionalMode" />
       <Projects />
+      <TalentBoard />
       <Match />
       <Interrogate />
       <ExcuseBuster />
       <RedTeamLab />
+      <ApplyAssistant />
 
       <!-- Booking / contact target for the sticky CTA and the pet menu -->
 
