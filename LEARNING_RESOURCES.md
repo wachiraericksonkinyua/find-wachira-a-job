@@ -10,6 +10,77 @@ words. The explanations below are intentionally beginner-friendly.
 
 ---
 
+## Phase 6 Build Snapshot — AI Red Team Lab (Days 21–32)
+
+This section keeps the completed Phase 6 implementation next to the study links,
+so the build can be reviewed later as a worked example.
+
+### What was shipped
+
+**Backend**
+- `backend/app/redteam.py`: four isolated prompt-injection CTF levels with
+  deterministic offline defenses, hashed-IP attack logs, PostgreSQL + atomic JSON
+  fallback, nickname sanitization, timing-safe flag checks, a leaderboard, and a
+  security report.
+- Routes:
+  - `GET /api/redteam/levels`
+  - `POST /api/redteam/attack/{level}`
+  - `POST /api/redteam/submit`
+  - `GET /api/redteam/leaderboard`
+  - `GET /api/security/report`
+- `backend/tests/test_redteam.py`: leakage, blocking, redaction, encoding
+  bypass, checker framing, submission, nickname, duplicate-award, and telemetry
+  tests.
+
+**Frontend**
+- `web/src/components/RedTeamLab.vue`: level cards, payload presets, attack
+  console, flag submission, live leaderboard, and live security findings.
+- `web/src/components/CinematicLanding.vue`: four-slide
+  `SYSTEM // SECURE_BOOT_v4.1` intro, 2.5D desk/wall scene, and hotspots for
+  Projects, `/LAB`, Book, and Resume.
+- Both mounted in `App.vue` with quick header navigation.
+- `web/src/components/__tests__/RedTeamLab.spec.ts`: 7 component tests.
+- `promptfooconfig.yaml`: automated red-team eval config for all four levels.
+
+**Verification**
+- `pytest -q` → **27 passed**
+- `npm test -- --run` → **79 passed**
+- `npm run build` → **success**
+
+**Commits**
+- `e60d0cb` — backend CTF sandbox
+- `4e73488` — RedTeamLab UI, 2.5D landing, promptfoo
+- `e116678` — Phase 6 log and learning resources
+
+### Defense-to-study map
+
+| Level | Attack idea | Defense implemented | Study this next |
+| --- | --- | --- | --- |
+| 1 — Chatty Intern | Roleplay, translation, direct override | System prompt only | [OWASP LLM01](https://genai.owasp.org/llm-top-10/), [Gandalf](https://gandalf.lakera.ai/) |
+| 2 — Input Filter Guard | Indirect phrasing, acrostic/translation | Keyword blocklist + `<untrusted_attack>` wrapping | [OWASP Prompt Injection Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html) |
+| 3 — Output Sanitizer | Base64, hex, reversed, character-spaced output | Literal flag-shape redaction | [OWASP LLM05](https://genai.owasp.org/llm-top-10/), [promptfoo](https://www.promptfoo.dev/docs/red-team/quickstart/) |
+| 4 — Dual Checker | Authorized audit framing + encoded digest | Prompt-intent checker + reply safety checker | [MITRE ATLAS](https://atlas.mitre.org/), [PyRIT](https://github.com/Azure/PyRIT) |
+
+### Study-later checklist
+
+- [ ] Read OWASP LLM01, LLM02, LLM05, LLM06, and LLM07, then map each one to a
+      route or test in `backend/app/redteam.py`.
+- [ ] Play [Lakera Gandalf](https://gandalf.lakera.ai/) and compare the winning
+      payload pattern with a Red Team Lab preset.
+- [ ] Run `npx promptfoo@latest eval -c promptfooconfig.yaml` against a live
+      backend and add one stronger assertion.
+- [ ] Read the [FastAPI testing guide](https://fastapi.tiangolo.com/tutorial/testing/)
+      and explain how `TestClient` and `monkeypatch` keep the red-team tests
+      isolated from PostgreSQL.
+- [ ] Review [`secrets.compare_digest`](https://docs.python.org/3/library/secrets.html#secrets.compare_digest)
+      and trace where it is used during flag submission.
+- [ ] Revisit the accessibility links below and check the 2.5D scene with
+      keyboard-only navigation and `prefers-reduced-motion`.
+- [ ] Read the SSRF and indirect-injection links in Part D before building the
+      Phase 8 Apply Assistant.
+
+---
+
 ## A. Days 16–20: Testing, CI/CD, Timing-Safe Auth, and Cloud Deployment
 
 ### 1. Timing attacks and `secrets.compare_digest` (Day 16 admin auth)
