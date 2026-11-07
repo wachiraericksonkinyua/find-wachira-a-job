@@ -26,6 +26,21 @@ URLS=(
   "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"
   "https://docs.python.org/3/library/ipaddress.html"
   "https://simonwillison.net/series/prompt-injection/"
+  "https://redis.io/docs/latest/"
+  "https://redis.io/docs/latest/develop/use/patterns/"
+  "https://redis.io/docs/latest/develop/use/client-side-caching/"
+  "https://redis.io/docs/latest/develop/clients/redis-py/"
+  "https://github.com/redis/redis-py"
+  "https://university.redis.io/"
+  "https://upstash.com/docs/redis/overall/getstarted"
+  "https://render.com/docs/free"
+  "https://render.com/docs/key-value"
+  "https://supabase.com/docs/guides/platform/going-into-prod"
+  "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule"
+  "https://uptimerobot.com/"
+  "https://cron-job.org/en/"
+  "https://betterstack.com/uptime"
+  "https://fastapi.tiangolo.com/advanced/events/"
 )
 
 failed=0

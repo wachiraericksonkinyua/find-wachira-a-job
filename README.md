@@ -116,7 +116,8 @@ configured, local JSON otherwise) and gives the pet 20 relief points.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Liveness probe |
+| `GET` | `/health` | Dependency-free liveness probe |
+| `GET` | `/api/keepalive` | Runs `SELECT 1` when Postgres is configured |
 | `GET` | `/api/telemetry` | Vector store, chunk count, providers, controls |
 | `GET` | `/api/resume` | Deterministic PDF download |
 | `GET` | `/api/resume.json` | Structured resume source |
@@ -256,7 +257,7 @@ Vite runs at `http://127.0.0.1:5173` and defaults to the local API. Override wit
 ### Tests
 
 ```bash
-cd backend && pytest -q          # 42 backend tests (includes secret scan)
+cd backend && pytest -q          # 43 backend tests (includes secret scan)
 cd web && npm test               # 86 Vitest tests
 cd web && npm run build          # production build
 ```
@@ -295,10 +296,18 @@ Import the repo, set **Root Directory** to `web`, and let Vercel detect Vite.
 - **backend** — Python 3.12, installs `requirements.txt` + `pytest`, runs `pytest -q`
 - **frontend** — Node 20, `npm ci` and `npm run build`
 
-`.github/workflows/keepalive.yml` pings `secrets.BACKEND_HEALTH_URL` daily at
-08:00 UTC (and on manual dispatch) to keep the Render service and Supabase
-project awake. Point it at `/api/telemetry` to also warm the database
-connection. The job skips cleanly when the secret is unset.
+`.github/workflows/keepalive.yml` pings `secrets.BACKEND_HEALTH_URL` every 10
+minutes (and on manual dispatch). Point it at
+`https://<service>/api/keepalive`; that route runs `SELECT 1` against Postgres,
+so it keeps both Render and a free Supabase project warm. GitHub scheduled jobs
+can be delayed — add an external uptime monitor (UptimeRobot, cron-job.org, or
+Better Stack) if Render must never sleep. Paid Render/Supabase plans remove the
+sleep/pause behavior entirely.
+
+No Redis dependency is required at the current single-instance scale. The app
+uses an in-process TTL cache, JSON embedding cache, and PostgreSQL for durable
+content. Learn the Redis trade-offs and patterns in
+[`study-vault/modules/05_redis_caching_and_keepalive.md`](study-vault/modules/05_redis_caching_and_keepalive.md).
 
 ---
 
@@ -307,11 +316,11 @@ connection. The job skips cleanly when the secret is unset.
 ```
 .
 ├── .github/workflows/ci.yml      CI: secret scan + backend tests + frontend build
-├── .github/workflows/keepalive.yml  Daily Render/Supabase health ping
+├── .github/workflows/keepalive.yml  Scheduled Render/Supabase keep-alive ping
 ├── render.yaml                   Render Blueprint (FastAPI)
 ├── promptfooconfig.yaml          Automated red-team eval for the CTF levels
 ├── LEARNING_RESOURCES.md         Saved Days 16–44 study library
-├── study-vault/                  Four study modules + verification harness
+├── study-vault/                  Five study modules + verification harness
 ├── THREAT_MODEL.md               OWASP LLM Top 10 mapping
 ├── backend/
 │   ├── app/

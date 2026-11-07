@@ -13,7 +13,8 @@ study-vault/
 │   ├── 01_testing_and_ci.md
 │   ├── 02_llm_security_owasp.md
 │   ├── 03_ssrf_and_network_security.md
-│   └── 04_frontend_a11y_and_moderation.md
+│   ├── 04_frontend_a11y_and_moderation.md
+│   └── 05_redis_caching_and_keepalive.md
 └── verification/
     ├── verify_setup.py          ← runs backend/frontend tests + security checks
     └── check_links.sh           ← re-checks every official documentation link
@@ -66,6 +67,20 @@ All links below were checked with `curl -L` on **2026-11-07**.
 | SSRF | [OWASP SSRF prevention](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html) | ✅ 200 |
 | SSRF | [Python `ipaddress`](https://docs.python.org/3/library/ipaddress.html) | ✅ 200 |
 | Prompt injection | [Simon Willison series](https://simonwillison.net/series/prompt-injection/) | ✅ 200 |
+| Operations | [Redis docs](https://redis.io/docs/latest/) | ✅ 200 |
+| Operations | [Redis caching patterns](https://redis.io/docs/latest/develop/use/patterns/) | ✅ 200 |
+| Operations | [Redis client-side caching](https://redis.io/docs/latest/develop/use/client-side-caching/) | ✅ 200 |
+| Operations | [redis-py docs](https://redis.io/docs/latest/develop/clients/redis-py/) | ✅ 200 |
+| Operations | [Redis University](https://university.redis.io/) | ✅ 200 |
+| Operations | [Upstash Redis](https://upstash.com/docs/redis/overall/getstarted) | ✅ 200 |
+| Operations | [Render free tier](https://render.com/docs/free) | ✅ 200 |
+| Operations | [Render Key Value](https://render.com/docs/key-value) | ✅ 200 |
+| Operations | [Supabase production checklist](https://supabase.com/docs/guides/platform/going-into-prod) | ✅ 200 |
+| Operations | [GitHub Actions schedule syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule) | ✅ 200 |
+| Operations | [UptimeRobot](https://uptimerobot.com/) | ✅ 200 |
+| Operations | [cron-job.org](https://cron-job.org/en/) | ✅ 200 |
+| Operations | [Better Stack Uptime](https://betterstack.com/uptime) | ✅ 200 |
+| Operations | [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/) | ✅ 200 |
 
 ### Correction
 

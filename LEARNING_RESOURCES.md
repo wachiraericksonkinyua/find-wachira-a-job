@@ -358,6 +358,52 @@ your app never executes the injected request.
 
 ---
 
+## E. Operations: Keep-Alive, Redis Caching, and Reliability
+
+**What to learn:** Free hosting sleeps, free databases pause, and caching is not
+automatically a good idea. Keep the deployment warm with a cheap endpoint that
+also runs a real database query, then add Redis only when you need shared or
+restart-safe cache/rate-limit state.
+
+- **Keep-alive endpoint:** `GET /api/keepalive` runs `SELECT 1` when Postgres is
+  configured. Point `BACKEND_HEALTH_URL` at
+  `https://your-service.onrender.com/api/keepalive`.
+- **Why Redis is not used yet:** the current app is a single Render instance with
+  an in-process TTL cache for excuse responses, a JSON embedding cache, and
+  PostgreSQL for durable content. Redis adds another service and failure mode
+  without solving a current problem.
+- **When Redis becomes worth it:** multiple instances sharing rate limits or
+  sessions, restart-safe LLM response caches, queues/background jobs, pub/sub,
+  presence, distributed locks, or atomic counters.
+- **Redis patterns to learn:** cache-aside, TTL/invalidation, `INCR` + `EXPIRE`
+  rate limiting, atomic Lua scripts, and degrade-to-database failure policy.
+
+Official reading (verified 2026-11-07):
+
+- [Redis documentation](https://redis.io/docs/latest/)
+- [Redis caching patterns](https://redis.io/docs/latest/develop/use/patterns/)
+- [Redis client-side caching](https://redis.io/docs/latest/develop/use/client-side-caching/)
+- [redis-py docs](https://redis.io/docs/latest/develop/clients/redis-py/)
+- [redis-py GitHub](https://github.com/redis/redis-py)
+- [Redis University](https://university.redis.io/)
+- [Upstash Redis getting started](https://upstash.com/docs/redis/overall/getstarted)
+- [Render free tier behavior](https://render.com/docs/free)
+- [Render Key Value (Redis-compatible)](https://render.com/docs/key-value)
+- [Supabase production checklist](https://supabase.com/docs/guides/platform/going-into-prod)
+- [GitHub Actions schedule syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+- [UptimeRobot](https://uptimerobot.com/)
+- [cron-job.org](https://cron-job.org/en/)
+- [Better Stack Uptime](https://betterstack.com/uptime)
+- [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/)
+
+**Practice:** deploy, set `BACKEND_HEALTH_URL`, run the workflow manually, then
+confirm Supabase shows recent activity. Draw a cache-aside flow for an expensive
+RAG response and name the Redis keys and TTLs you would use.
+
+Structured notes live in [`study-vault/modules/05_redis_caching_and_keepalive.md`](study-vault/modules/05_redis_caching_and_keepalive.md).
+
+---
+
 ## Suggested Study Order
 
 1. **Week 1:** Days 16–20 links. Re-run `pytest`, inspect the CI workflow, and

@@ -327,3 +327,24 @@
 - Added Vitest coverage for `MeetDev.vue`, `SystemLogs.vue`, and `AdminDashboard.vue`.
 - Added pytest coverage for roast moderation, admin project CRUD, project reactions, audit logs, and dynamic resume regeneration.
 - Verified `pytest -q` (**42 passed**), `npm test -- --run` (**86 passed**), and `npm run build`.
+
+## Day 46: Keep-Alive, Database Warmth & Redis Study Notes
+
+- Added `GET /api/keepalive`: when Postgres is configured it runs `SELECT 1`,
+  returns the database mode and timestamp, and returns `503` on a failed query.
+  With no database it still returns HTTP 200 with `database: json-fallback`.
+- Updated `.github/workflows/keepalive.yml` to run every 10 minutes and to point
+  `BACKEND_HEALTH_URL` at `/api/keepalive` so the Render service and free
+  Supabase project both receive activity.
+- Kept Render's own health check on dependency-free `/health` so a transient
+  database problem does not make the web service look unhealthy.
+- Documented that GitHub schedules can be delayed; external monitors
+  (UptimeRobot, cron-job.org, Better Stack) are recommended for strict Render
+  free-tier warmth, while paid plans remove sleep/pause behavior.
+- Added `study-vault/modules/05_redis_caching_and_keepalive.md` explaining why
+  Redis is not required at the current single-instance scale, when it becomes
+  useful (shared rate limits, restart-safe LLM cache, queues, pub/sub), and the
+  cache-aside/TTL/failure patterns to learn.
+- Added 15 verified Redis, Render, Supabase, GitHub Actions, uptime-monitor, and
+  FastAPI lifespan links to the study vault and `LEARNING_RESOURCES.md`.
+- Updated the study-vault link checker with the new operations links.
