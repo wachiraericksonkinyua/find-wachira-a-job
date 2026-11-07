@@ -17,6 +17,7 @@ PROTECTED_FILES = (
     "backend/.env",
     "backend/app/bookings.json",
     "backend/app/pet_state.json",
+    "backend/app/redteam_state.json",
 )
 
 # Only real-looking credentials are matched. Documentation placeholders are

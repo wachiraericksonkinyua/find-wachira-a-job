@@ -5,6 +5,7 @@ __pycache__/
 .env
 backend/app/pet_state.json
 backend/app/embeddings_cache.json
+backend/app/redteam_state.json
 
 # React & Frontend
 node_modules/

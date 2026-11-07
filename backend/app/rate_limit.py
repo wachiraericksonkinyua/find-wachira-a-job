@@ -58,3 +58,7 @@ interact_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60)
 
 # LLM calls cost real money, so keep this tighter than the pet interactions.
 llm_limiter = SlidingWindowLimiter(max_requests=5, window_seconds=60)
+
+# The red-team sandbox is offline and cheap, but still gets a per-IP cap so a
+# single visitor cannot hammer the leaderboard/telemetry bookkeeping.
+redteam_limiter = SlidingWindowLimiter(max_requests=30, window_seconds=60)

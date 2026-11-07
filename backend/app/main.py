@@ -24,7 +24,16 @@ from app.llm import (
 )
 from app.match import MatchRequest, MatchResponse, run_match
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
-from app.rate_limit import interact_limiter, llm_limiter
+from app.rate_limit import interact_limiter, llm_limiter, redteam_limiter
+from app.redteam import (
+    AttackRequest,
+    FlagSubmission,
+    get_leaderboard as get_redteam_leaderboard,
+    list_levels as list_redteam_levels,
+    run_attack as run_redteam_attack,
+    security_report as build_security_report,
+    submit_flag as submit_redteam_flag,
+)
 from app.resume import load_resume_data, render_resume_pdf
 
 app = FastAPI(title="Find Wachira a Job API", version="0.1.0")
@@ -64,6 +73,7 @@ SECURITY_CONTROLS = [
     "Server-Attached-RAG-Citations",
     "Sliding-Window-Rate-Limit",
     "Timing-Safe-Admin-Auth",
+    "Isolated-Red-Team-CTF-Sandbox",
 ]
 
 
@@ -280,3 +290,42 @@ async def excuse_buster(payload: ExcuseRequest, request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.get("/api/redteam/levels")
+def redteam_levels():
+    # Level metadata only: flags live server-side in app/redteam.py.
+    return list_redteam_levels()
+
+
+@app.post("/api/redteam/attack/{level}")
+def redteam_attack(level: int, payload: AttackRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not redteam_limiter.allow(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attacks! Let the sandbox cool down for a minute.",
+        )
+
+    try:
+        return run_redteam_attack(level, payload.prompt, client_ip)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown red-team level") from None
+
+
+@app.post("/api/redteam/submit")
+def redteam_submit(payload: FlagSubmission):
+    try:
+        return submit_redteam_flag(payload.level, payload.guess, payload.nickname)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown red-team level") from None
+
+
+@app.get("/api/redteam/leaderboard")
+def redteam_leaderboard():
+    return get_redteam_leaderboard()
+
+
+@app.get("/api/security/report")
+def security_report():
+    return build_security_report()
