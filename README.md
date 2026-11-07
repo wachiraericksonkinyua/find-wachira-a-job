@@ -17,8 +17,8 @@ meter. Built with **FastAPI**, **Vue 3**, **pgvector**, and an ordered
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Vue 3 + Vite + Pinia + Tailwind (Vercel)                        │
-│  Cinematic 2.5D hero · Pet · Projects · Match · Interrogate      │
-│  ExcuseBuster · RedTeamLab · Book                                │
+│  Cinematic 2.5D hero · Pet · Projects · TalentBoard · Match      │
+│  Interrogate · ExcuseBuster · RedTeamLab · ApplyAssistant · Book │
 └───────────────────────────────┬──────────────────────────────────┘
                                 │ fetch + Server-Sent Events
 ┌───────────────────────────────▼──────────────────────────────────┐
@@ -32,6 +32,9 @@ meter. Built with **FastAPI**, **Vue 3**, **pgvector**, and an ordered
 │  /api/admin/leads     constant-time admin key                    │
 │  /api/redteam/*       4-level isolated prompt-injection CTF      │
 │  /api/security/report live attack telemetry + OWASP coverage     │
+│  /api/events          anonymous, allow-listed funnel analytics    │
+│  /api/board           moderated peer talent board                │
+│  /api/apply/*         SSRF-hardened analysis + grounded drafts   │
 └───────────────┬──────────────────────────────┬───────────────────┘
                 │                              │
       ┌─────────▼─────────┐          ┌─────────▼──────────────┐
@@ -131,6 +134,16 @@ configured, local JSON otherwise) and gives the pet 20 relief points.
 | `POST` | `/api/redteam/submit` | Timing-safe flag verification + leaderboard |
 | `GET` | `/api/redteam/leaderboard` | Nicknames-only scores |
 | `GET` | `/api/security/report` | Attack attempts, blocks, solves, OWASP coverage |
+| `POST` | `/api/events` | Anonymous allow-listed funnel event (204) |
+| `GET` | `/api/admin/stats` | Protected funnel, booking, board, and CTF stats |
+| `GET` | `/api/board` | Approved peer listings (no emails/tokens) |
+| `POST` | `/api/board/submit` | Pending peer submission + private takedown token |
+| `POST` | `/api/board/takedown` | Remove a listing with id + token |
+| `POST` | `/api/admin/board/{id}/approve` | Admin approval for a pending listing |
+| `POST` | `/api/apply/analyze` | SSRF-hardened URL/JD analysis + RAG score |
+| `POST` | `/api/apply/draft` | Grounded cover letter + 3 CV tips + citations |
+| `GET` | `/api/apply/jobs` | Application tracker |
+| `PUT` | `/api/apply/jobs/{id}` | Update application status |
 
 Interactive docs: `http://127.0.0.1:8000/docs`
 
@@ -148,6 +161,9 @@ See [THREAT_MODEL.md](THREAT_MODEL.md) for the full OWASP LLM Top 10 mapping.
 | Input bounds | JD ≤ 6,000 chars, notes ≤ 280, role/company ≤ 120, attacks ≤ 1,000 |
 | Admin auth | `secrets.compare_digest` against `ADMIN_API_KEY` |
 | Red-team sandbox | Four isolated fake-flag levels, hashed-IP attempt logs, nickname sanitization, timing-safe flag checks |
+| Talent board moderation | Pending-by-default, `https://`-only links, no emails, one-time hashed takedown tokens, admin approval |
+| SSRF protection | DNS resolution + rejection of private/loopback/link-local/reserved IPs, no redirects, 5 s timeout, 100 KB cap |
+| Human-in-the-loop agency | Apply drafts are grounded, citation-backed, copy-only, and never auto-submitted |
 | Secret hygiene | Keys stay server-side; telemetry returns provider names only |
 | CORS | Explicit local origins + `ALLOWED_ORIGINS` allowlist, never `*` |
 | PII guard | Third-party emails rejected in intro/know_person notes |
@@ -192,7 +208,7 @@ Vite runs at `http://127.0.0.1:5173` and defaults to the local API. Override wit
 ### Tests
 
 ```bash
-cd backend && pytest -q          # 27 backend tests (includes secret scan)
+cd backend && pytest -q          # 37 backend tests (includes secret scan)
 cd web && npm test               # 79 Vitest tests
 cd web && npm run build          # production build
 ```
@@ -257,6 +273,8 @@ connection. The job skips cleanly when the secret is unset.
 │   │   ├── pet.py                Desperation state model
 │   │   ├── bookings.py           Bookings + admin leads
 │   │   ├── redteam.py            4-level CTF, logs, leaderboard, report
+│   │   ├── board.py              Talent board + anonymous funnel analytics
+│   │   ├── apply_assistant.py    SSRF-safe fetch + grounded application drafts
 │   │   ├── excuses.py            Presets + TTL cache
 │   │   ├── resume.py             Deterministic fpdf2 renderer
 │   │   └── rate_limit.py         Sliding-window limiter

@@ -225,3 +225,43 @@
 - Added root `promptfooconfig.yaml` with HTTP providers for all four levels plus guard assertions against key/stack-trace leaks.
 - Added `LEARNING_RESOURCES.md`, a saved Days 16–44 study library with official docs, hands-on labs, and beginner explanations.
 - Verified `pytest -q` (27 passed), `npm test -- --run` (79 passed), and `npm run build`.
+
+## Days 33–38: Phase 7 — Funnel Analytics, Roast Wall Moderation & Curated Talent Board
+
+### 33–35: Anonymous Funnel Analytics
+- Added allow-listed funnel events to `backend/app/board.py`: `page_view`, `cv_open`, `match_run`, `booking_start`, and `lab_attempt`.
+- `POST /api/events` accepts only an event name plus a coarse session id, stores no raw JD, email, IP, or free text, and returns `204 No Content`.
+- Event counts are aggregated and only the last 500 coarse events are retained, bounding storage growth.
+- Added `GET /api/admin/stats`, protected by `X-Admin-Key` and `secrets.compare_digest`, returning event counts, total bookings, board moderation counts, and the red-team security report.
+- Added a tiny `web/src/composables/useAnalytics.js` tracker; the app records `page_view` on mount and `cv_open` when the resume link is used. Analytics failures never break the UI.
+
+### 36–38: Curated Talent Board & Moderation
+- Added `GET /api/board` for approved peer listings only, with `id`, `name`, `role`, `pitch`, and `link`; emails and private fields are never returned.
+- Seeded two realistic approved profiles so the board is useful out of the box.
+- Added `POST /api/board/submit` with bounded name/role/pitch fields, HTML/control-character stripping, and an `https://`-only public link validator.
+- Submissions start as `status="pending"` and return a one-time `takedown_token`; only its SHA-256 hash is stored.
+- Added `POST /api/board/takedown` (matching id + token, constant-time hash comparison) and admin-only `POST /api/admin/board/{id}/approve`.
+- Added `web/src/components/TalentBoard.vue`: approved peer cards, a peer opt-in modal with privacy notice, one-time token display/copy, and a self-service takedown form.
+- Mounted `<TalentBoard />` in `App.vue` and added a `#talent` header jump.
+
+## Days 39–44: Phase 8 — Human-in-the-Loop Apply Assistant with SSRF Protection
+
+### 39–41: SSRF-Safe Job Analysis
+- Added `backend/app/apply_assistant.py` with `validate_public_url()`:
+  - Allows only `http` and `https`.
+  - Resolves every hostname address with `socket.getaddrinfo`.
+  - Rejects private, loopback, link-local, multicast, reserved, unspecified, and non-global addresses, blocking `localhost`, `127.0.0.1`, `169.254.169.254`, `10.x.x.x`, and IPv6 loopback targets.
+  - Rejects embedded credentials and invalid ports.
+- `POST /api/apply/analyze` validates before fetching, uses `follow_redirects=False`, a 5-second timeout, and a 100 KB response cap, then strips scripts/styles/HTML and runs the existing RAG match engine.
+- Returns `job_id`, `title`, `score`, `matched`, `gaps`, `verdict`, and source citations; every analyzed job is persisted to the tracker.
+- Added rate-limited `GET /api/apply/jobs` and `PUT /api/apply/jobs/{id}` with the statuses `saved`, `drafted`, `applied`, `interview`, and `closed`.
+
+### 42–44: Grounded Drafts & Human-in-the-Loop Tracker
+- Added `POST /api/apply/draft`, grounding the covering letter and three CV bullet tips only in Karatina University, the Judiciary of Kenya IT internship, AyuTech Motors, and Find Wachira a Job.
+- The draft route treats the JD as untrusted data, returns source citations, and always sets `human_review_required: true` and `auto_submit: false`.
+- Added deterministic fallback drafts when the LLM is unconfigured or fails, so the feature works offline.
+- Added `web/src/components/ApplyAssistant.vue`: SSRF-hardened job input, score/matched/gaps panel, side-by-side cover letter + three bullet tips + citations, copy button, and an editable application tracker.
+- Mounted `<ApplyAssistant />` in `App.vue` and added an `#apply` header jump.
+- Added `backend/tests/test_phase7_8.py` covering SSRF blocking, pre-fetch rejection, seeded board privacy, pending submissions, takedown token checks, admin approval, analytics allow-listing, admin stats, raw-JD analysis, tracker updates, grounded fallback drafting, and 404 handling.
+- Verified `pytest -q` (37 passed), `npm test -- --run` (79 passed), and `npm run build`.
+- Added `board_state.json` and `apply_jobs.json` to `.gitignore` and the secret-scan protected runtime files.

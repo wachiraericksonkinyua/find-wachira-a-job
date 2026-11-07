@@ -81,6 +81,65 @@ so the build can be reviewed later as a worked example.
 
 ---
 
+## Phase 7 & 8 Build Snapshot — Talent Board and Apply Assistant (Days 33–44)
+
+### What was shipped
+
+**Phase 7 — Funnel analytics and moderated talent board**
+- `backend/app/board.py`: allow-listed funnel events (`page_view`, `cv_open`,
+  `match_run`, `booking_start`, `lab_attempt`), aggregated counts, approved peer
+  listings, pending submissions, hashed takedown tokens, and admin approval.
+- Routes: `POST /api/events`, `GET /api/admin/stats`, `GET /api/board`,
+  `POST /api/board/submit`, `POST /api/board/takedown`, and
+  `POST /api/admin/board/{id}/approve`.
+- `web/src/components/TalentBoard.vue`: approved peer cards, peer opt-in modal,
+  privacy notice, one-time token display, and self-service takedown.
+- `web/src/composables/useAnalytics.js`: fire-and-forget session analytics that
+  never breaks the UI.
+
+**Phase 8 — SSRF-hardened apply assistant**
+- `backend/app/apply_assistant.py`: `validate_public_url()` resolves every
+  address and rejects private, loopback, link-local, multicast, reserved,
+  unspecified, and non-global targets. Fetching disables redirects, times out
+  after 5 seconds, caps responses at 100 KB, and strips HTML/scripts.
+- Routes: `POST /api/apply/analyze`, `POST /api/apply/draft`,
+  `GET /api/apply/jobs`, and `PUT /api/apply/jobs/{id}`.
+- `web/src/components/ApplyAssistant.vue`: URL/JD analysis, RAG score, matched
+  skills and gaps, grounded cover letter, three CV bullet tips, source citations,
+  copy button, and an editable application tracker.
+- Drafts always return `human_review_required: true` and `auto_submit: false`.
+
+**Verification**
+- `pytest -q` → **37 passed**
+- `npm test -- --run` → **79 passed**
+- `npm run build` → **success**
+
+### Defense-to-study map
+
+| Feature | Implementation | Study this next |
+| --- | --- | --- |
+| Funnel analytics | Allow-listed event names, coarse session ids, no PII/raw JDs | [OWASP XSS Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) |
+| Peer board | Pending-by-default moderation, https-only links, hashed takedown tokens | [OWASP XSS Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) |
+| SSRF defense | Resolve every IP, reject private/loopback/link-local/reserved ranges, no redirects | [OWASP SSRF Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html) |
+| Apply assistant | Grounded facts, source citations, human approval, no auto-submit | [Simon Willison: Prompt Injection](https://simonwillison.net/series/prompt-injection/) |
+
+### Study-later checklist
+
+- [ ] Re-read the SSRF prevention cheat sheet and reproduce the four blocked
+      targets from `backend/tests/test_phase7_8.py`.
+- [ ] Explain why checking only the URL string is weaker than resolving every
+      address with `socket.getaddrinfo`.
+- [ ] Audit `TalentBoard.vue` for XSS: note that Vue escapes rendered text and
+      the backend strips tags and stores only allow-listed fields.
+- [ ] Trace how `takedown_token` is generated, hashed, and compared with
+      `secrets.compare_digest`.
+- [ ] Read Simon Willison's indirect prompt-injection series and explain why the
+      fetched JD is wrapped in `<untrusted_jd>`.
+- [ ] Confirm the draft route never calls an external submit tool; the human
+      copies the letter and sends it manually.
+
+---
+
 ## A. Days 16–20: Testing, CI/CD, Timing-Safe Auth, and Cloud Deployment
 
 ### 1. Timing attacks and `secrets.compare_digest` (Day 16 admin auth)
