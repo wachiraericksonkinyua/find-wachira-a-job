@@ -263,6 +263,7 @@ connection. The job skips cleanly when the secret is unset.
 ├── render.yaml                   Render Blueprint (FastAPI)
 ├── promptfooconfig.yaml          Automated red-team eval for the CTF levels
 ├── LEARNING_RESOURCES.md         Saved Days 16–44 study library
+├── study-vault/                  Four study modules + verification harness
 ├── THREAT_MODEL.md               OWASP LLM Top 10 mapping
 ├── backend/
 │   ├── app/

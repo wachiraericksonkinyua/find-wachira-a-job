@@ -265,3 +265,21 @@
 - Added `backend/tests/test_phase7_8.py` covering SSRF blocking, pre-fetch rejection, seeded board privacy, pending submissions, takedown token checks, admin approval, analytics allow-listing, admin stats, raw-JD analysis, tracker updates, grounded fallback drafting, and 404 handling.
 - Verified `pytest -q` (37 passed), `npm test -- --run` (79 passed), and `npm run build`.
 - Added `board_state.json` and `apply_jobs.json` to `.gitignore` and the secret-scan protected runtime files.
+
+## Day 44: Study Vault, Module Notes & Verification Harness
+
+- Created a memorable `study-vault/` workspace so the Days 16–44 curriculum is easy to find later.
+- Added four modular guides:
+  - `modules/01_testing_and_ci.md` — pytest, `TestClient`, monkeypatch, timing-safe auth, GitHub Actions, Gitleaks, CORS.
+  - `modules/02_llm_security_owasp.md` — OWASP LLM Top 10, prompt-injection patterns, Red Team Lab mapping, promptfoo/garak/PyRIT.
+  - `modules/03_ssrf_and_network_security.md` — `ipaddress`, private-IP rejection, DNS/redirect risks, indirect prompt injection.
+  - `modules/04_frontend_a11y_and_moderation.md` — `prefers-reduced-motion`, keyboard/ARIA, XSS, moderation, data minimization.
+- Added `study-vault/verification/verify_setup.py`:
+  - Re-executes inside `backend/.venv` when available.
+  - Runs backend `pytest -q` and frontend `npm test -- --run`.
+  - Verifies `validate_public_url()` rejects loopback, localhost, cloud metadata, private IPv4, and `file://`.
+  - Confirms `secrets.compare_digest` is used and that the wrong admin key returns `401` while the right key succeeds.
+- Added `study-vault/verification/check_links.sh` and recorded the 2026-11-07 link audit in `study-vault/README.md`.
+- Verified all 21 documentation links return HTTP 200. Corrected the MITRE ATLAS path from `https://atlas.mitre.org/matrices/ATLAS` (404) to `https://atlas.mitre.org/` (200).
+- Verification harness result: **4/4 checks passed** (backend tests, frontend tests, SSRF blocking, timing-safe auth).
+- Linked the study vault from `LEARNING_RESOURCES.md` and the README project structure.

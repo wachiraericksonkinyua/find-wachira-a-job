@@ -8,6 +8,11 @@ Use it in small sessions. For each block: read the official docs first, then
 build the smallest possible demo, then write down the attack/defense in your own
 words. The explanations below are intentionally beginner-friendly.
 
+> **Structured practice workspace:** [`study-vault/`](study-vault/README.md)
+> contains four compact modules, a link checker, and a setup verification
+> harness. Run `python study-vault/verification/verify_setup.py` to check the
+> backend, frontend, SSRF validator, and timing-safe admin auth in one command.
+
 ---
 
 ## Phase 6 Build Snapshot — AI Red Team Lab (Days 21–32)
