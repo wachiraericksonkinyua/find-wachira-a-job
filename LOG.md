@@ -283,3 +283,47 @@
 - Verified all 21 documentation links return HTTP 200. Corrected the MITRE ATLAS path from `https://atlas.mitre.org/matrices/ATLAS` (404) to `https://atlas.mitre.org/` (200).
 - Verification harness result: **4/4 checks passed** (backend tests, frontend tests, SSRF blocking, timing-safe auth).
 - Linked the study vault from `LEARNING_RESOURCES.md` and the README project structure.
+
+## Day 45: Multi-Page UX, Persistent Content, Admin Dashboard & System Logs
+
+### Multi-page routing and UX
+- Added `vue-router` and `web/src/router.js` with dedicated routes:
+  `/`, `/match`, `/projects`, `/wall`, `/lab`, `/board`, `/apply`, `/meet`, `/logs`, `/admin`, `/admin/logs`, and `/contact`.
+- Replaced the single scrolling page with an app shell in `App.vue`: sticky navigation, mobile menu, active-route styling, API health indicator, skip link, and footer.
+- Added page views under `web/src/pages/` for Home, Match, Projects, Wall, Lab, Board, Apply, Meet the Dev, System Logs, Admin, and Contact.
+- Home now has the 2.5D hero, quick stats, 10-second pitch, path cards, and booking section instead of every feature in one endless feed.
+
+### Project deck, detail modal, and reactions
+- Rebuilt `Projects.vue` as a swipe deck plus project grid. Cards open an immersive modal with problem/build/outcome, verification/demo links, source links, and the monkey commentary stream.
+- Added heart/roast reactions via `POST /api/projects/{id}/reactions`, persisted in PostgreSQL (`project_reactions`) or atomic JSON fallback.
+- Extended project data with optional `repo_url` and `demo_url`, plus reaction counts.
+
+### Roast Wall
+- Added anonymous Roast Wall submission and moderation in `backend/app/roasts.py` and `web/src/components/RoastWall.vue`.
+- Public submissions never accept or display names, companies, or emails. Everything is `pending` until an owner approves it.
+- Added swipe/arrow-key deck, approved wall grid, and an anonymous submission form.
+
+### Persistent content and database support
+- Added `backend/app/content_store.py` for PostgreSQL + atomic JSON persistence of roasts, admin-managed projects, reactions, and the owner audit log.
+- Added PostgreSQL schema for `board_submissions`, `roast_wall`, `portfolio_projects`, `project_reactions`, and `admin_audit_log` in `backend/sql/init_pgvector.sql`.
+- Extended `board.py` to persist board submissions and analytics events to PostgreSQL when configured, with JSON fallback.
+- Added a global test isolation fixture that keeps pytest off live Supabase credentials.
+
+### Dynamic project management and resume regeneration
+- Added `backend/app/portfolio.py` and admin routes for project create/update/delete.
+- `load_projects()` now merges base case studies with admin-managed projects, so new work appears in the project deck and RAG chunk index.
+- `load_resume_data()` merges admin projects into the resume JSON. The PDF cache key now includes a project revision, so adding/editing/deleting a project invalidates and regenerates the PDF on the next `/api/resume` request.
+- Added owner audit logging for project, roast, and board actions.
+
+### Admin dashboard and system logs
+- Added `web/src/pages/AdminDashboard.vue` with session-only admin key unlock and tabs for overview, roast moderation, board moderation, project CRUD, and audit logs.
+- Added protected admin endpoints for roasts, board queue/rejection, projects, and logs.
+- Added `web/src/pages/SystemLogs.vue` and `GET /api/system/logs`: container health, database mode, vector chunks, LLM providers, rate-limit snapshots, and a request-id feed with no client IPs.
+- Added request-ID middleware and `X-Request-ID` response headers.
+
+### Meet the Dev and visual pass
+- Added `web/src/pages/MeetDev.vue` with Erickson Kinyua Wachira's bio, Karatina University B.Sc. IT (2027), Nairobi, Judiciary of Kenya internship, stack, social links, and resume download.
+- Softened the blueprint grid, added page shells/buttons/form/focus styles, improved mobile responsiveness, and added reduced-motion handling across new views.
+- Added Vitest coverage for `MeetDev.vue`, `SystemLogs.vue`, and `AdminDashboard.vue`.
+- Added pytest coverage for roast moderation, admin project CRUD, project reactions, audit logs, and dynamic resume regeneration.
+- Verified `pytest -q` (**42 passed**), `npm test -- --run` (**86 passed**), and `npm run build`.

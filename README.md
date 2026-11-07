@@ -16,9 +16,9 @@ meter. Built with **FastAPI**, **Vue 3**, **pgvector**, and an ordered
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Vue 3 + Vite + Pinia + Tailwind (Vercel)                        │
-│  Cinematic 2.5D hero · Pet · Projects · TalentBoard · Match      │
-│  Interrogate · ExcuseBuster · RedTeamLab · ApplyAssistant · Book │
+│  Vue 3 + Vite + Pinia + Tailwind + Vue Router (Vercel)          │
+│  Multi-page: Home · Match · Projects · Wall · Lab · Board        │
+│  Apply · Meet · Logs · Admin · Contact                           │
 └───────────────────────────────┬──────────────────────────────────┘
                                 │ fetch + Server-Sent Events
 ┌───────────────────────────────▼──────────────────────────────────┐
@@ -34,7 +34,10 @@ meter. Built with **FastAPI**, **Vue 3**, **pgvector**, and an ordered
 │  /api/security/report live attack telemetry + OWASP coverage     │
 │  /api/events          anonymous, allow-listed funnel analytics    │
 │  /api/board           moderated peer talent board                │
+│  /api/roasts          anonymous, moderated Roast Wall             │
 │  /api/apply/*         SSRF-hardened analysis + grounded drafts   │
+│  /api/admin/projects  admin CRUD -> RAG + resume regeneration    │
+│  /api/system/logs     request-id + rate-limit telemetry           │
 └───────────────┬──────────────────────────────┬───────────────────┘
                 │                              │
       ┌─────────▼─────────┐          ┌─────────▼──────────────┐
@@ -144,8 +147,30 @@ configured, local JSON otherwise) and gives the pet 20 relief points.
 | `POST` | `/api/apply/draft` | Grounded cover letter + 3 CV tips + citations |
 | `GET` | `/api/apply/jobs` | Application tracker |
 | `PUT` | `/api/apply/jobs/{id}` | Update application status |
+| `GET` | `/api/roasts` | Approved anonymous roasts only |
+| `POST` | `/api/roasts` | Submit an anonymous roast/advice for moderation |
+| `GET` | `/api/admin/roasts` | Moderation queue (admin key) |
+| `POST` | `/api/admin/roasts/{id}/approve` | Approve a roast |
+| `POST` | `/api/admin/roasts/{id}/reject` | Reject a roast |
+| `DELETE` | `/api/admin/roasts/{id}` | Delete a roast |
+| `GET` | `/api/admin/board` | Board moderation queue (admin key) |
+| `POST` | `/api/admin/board/{id}/reject` | Reject a board submission |
+| `GET` | `/api/admin/projects` | Admin-managed custom projects |
+| `POST` | `/api/admin/projects` | Add project → RAG + resume regeneration |
+| `PUT` | `/api/admin/projects/{id}` | Edit project → regenerate resume |
+| `DELETE` | `/api/admin/projects/{id}` | Remove project → regenerate resume |
+| `GET` | `/api/admin/logs` | Owner audit log |
+| `POST` | `/api/projects/{id}/reactions` | Heart or roast a project |
+| `GET` | `/api/system/logs` | Public request-id/telemetry feed |
 
 Interactive docs: `http://127.0.0.1:8000/docs`
+
+### Frontend routes
+
+`/` Home · `/match` Match & Interrogator · `/projects` Project deck & modal ·
+`/wall` Roast Wall · `/lab` Red Team CTF · `/board` Talent Board ·
+`/apply` Apply Assistant · `/meet` Meet the Dev · `/logs` System Logs ·
+`/admin` Owner dashboard · `/admin/logs` Audit-log tab · `/contact` Book interview
 
 ---
 
@@ -161,9 +186,12 @@ See [THREAT_MODEL.md](THREAT_MODEL.md) for the full OWASP LLM Top 10 mapping.
 | Input bounds | JD ≤ 6,000 chars, notes ≤ 280, role/company ≤ 120, attacks ≤ 1,000 |
 | Admin auth | `secrets.compare_digest` against `ADMIN_API_KEY` |
 | Red-team sandbox | Four isolated fake-flag levels, hashed-IP attempt logs, nickname sanitization, timing-safe flag checks |
-| Talent board moderation | Pending-by-default, `https://`-only links, no emails, one-time hashed takedown tokens, admin approval |
+| Talent board moderation | Pending-by-default, `https://`-only links, no emails, one-time hashed takedown tokens, admin approval/rejection |
+| Roast wall moderation | Anonymous by design, no company/email/author fields, pending-by-default, admin review |
 | SSRF protection | DNS resolution + rejection of private/loopback/link-local/reserved IPs, no redirects, 5 s timeout, 100 KB cap |
 | Human-in-the-loop agency | Apply drafts are grounded, citation-backed, copy-only, and never auto-submitted |
+| Admin-managed content | Project CRUD regenerates the PDF resume and feeds the RAG index; admin actions are audit-logged |
+| System telemetry | Request IDs, rate-limit status, vector chunk count, and container health; no client IPs exposed |
 | Secret hygiene | Keys stay server-side; telemetry returns provider names only |
 | CORS | Explicit local origins + `ALLOWED_ORIGINS` allowlist, never `*` |
 | PII guard | Third-party emails rejected in intro/know_person notes |
@@ -194,6 +222,26 @@ API: `http://127.0.0.1:8000` · Docs: `http://127.0.0.1:8000/docs`
 Optional Postgres/pgvector: run `backend/sql/init_pgvector.sql` against your
 database and set `DATABASE_URL` / `DIRECT_URL`.
 
+### Persistence
+
+When Postgres is configured, bookings, pet leads, board submissions, analytics
+events, roasts, admin-managed projects, project reactions, and owner audit logs
+are written to Supabase/PostgreSQL. When it is unreachable or unset, the same
+routes use atomic JSON fallbacks (`backend/app/*.json`) so local development and
+CI still work. Runtime JSON files are gitignored.
+
+### Admin dashboard
+
+Open `/admin` and enter the backend `ADMIN_API_KEY`. The dashboard can:
+
+- approve/reject anonymous roasts and peer board submissions
+- add/edit/delete portfolio projects
+- download the regenerated PDF resume and inspect the owner audit log
+- open the public `/logs` telemetry page
+
+Adding a project updates `GET /api/projects`, the RAG chunk index, the resume
+JSON, and the downloadable `wachira-erickson-kinyua-resume.pdf`.
+
 ### Frontend
 
 ```bash
@@ -208,8 +256,8 @@ Vite runs at `http://127.0.0.1:5173` and defaults to the local API. Override wit
 ### Tests
 
 ```bash
-cd backend && pytest -q          # 37 backend tests (includes secret scan)
-cd web && npm test               # 79 Vitest tests
+cd backend && pytest -q          # 42 backend tests (includes secret scan)
+cd web && npm test               # 86 Vitest tests
 cd web && npm run build          # production build
 ```
 
@@ -275,6 +323,9 @@ connection. The job skips cleanly when the secret is unset.
 │   │   ├── bookings.py           Bookings + admin leads
 │   │   ├── redteam.py            4-level CTF, logs, leaderboard, report
 │   │   ├── board.py              Talent board + anonymous funnel analytics
+│   │   ├── roasts.py             Anonymous Roast Wall moderation
+│   │   ├── portfolio.py          Admin project CRUD + resume/RAG propagation
+│   │   ├── content_store.py      Postgres + atomic JSON content persistence
 │   │   ├── apply_assistant.py    SSRF-safe fetch + grounded application drafts
 │   │   ├── excuses.py            Presets + TTL cache
 │   │   ├── resume.py             Deterministic fpdf2 renderer
@@ -283,6 +334,11 @@ connection. The job skips cleanly when the secret is unset.
 │   └── tests/                    pytest suite
 └── web/
     ├── vercel.json               SPA rewrites
-    ├── src/                      Vue components, Pinia store, composables
+    ├── src/
+    │   ├── router.js             Vue Router routes for every page
+    │   ├── pages/                Home, Match, Projects, Wall, Lab, Board,
+    │   │                         Apply, MeetDev, SystemLogs, Admin, Contact
+    │   ├── components/           Reusable panels and interactive features
+    │   └── composables/          Analytics, SSE streaming helpers
     └── tests/                    Vitest + Vue Test Utils suite
 ```
