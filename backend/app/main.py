@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 import time
@@ -38,7 +39,7 @@ from app.bookings import (
     record_pet_lead,
     save_booking,
 )
-from app.embeddings import postgres_available
+from app.embeddings import _connect_postgres, postgres_available
 from app.projects import get_project, iter_project_chunks, load_projects
 from app.excuses import PRESET_EXCUSES, ExcuseRequest
 from app.llm import (
@@ -88,6 +89,8 @@ from app.redteam import (
     submit_flag as submit_redteam_flag,
 )
 from app.resume import load_resume_data, render_resume_pdf
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Find Wachira a Job API", version="0.1.0")
 
@@ -167,6 +170,40 @@ SECURITY_CONTROLS = [
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "db": True}
+
+
+@app.get("/api/keepalive")
+def keepalive():
+    """Touch the database so Render and Supabase stay warm/active.
+
+    `/health` is intentionally dependency-free. This endpoint performs the
+    smallest useful Postgres query, so an external scheduler can keep both the
+    web service and the free Supabase project from going idle.
+    """
+    connection = _connect_postgres()
+    if connection is None:
+        return {
+            "status": "ok",
+            "database": "json-fallback",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception as exc:
+        logger.warning("Keepalive database query failed (%s).", exc)
+        raise HTTPException(
+            status_code=503, detail="Database keepalive query failed."
+        ) from None
+    finally:
+        connection.close()
+
+    return {
+        "status": "ok",
+        "database": "postgres",
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @app.get("/api/telemetry")

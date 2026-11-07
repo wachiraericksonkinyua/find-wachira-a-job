@@ -178,6 +178,15 @@ def test_project_reactions_persist_and_are_counted(client):
     )
 
 
+def test_keepalive_endpoint_works_with_json_fallback(client):
+    response = client.get("/api/keepalive")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["database"] == "json-fallback"
+    assert data["checked_at"]
+
+
 def test_admin_project_routes_require_admin_key(client):
     assert client.get("/api/admin/projects").status_code == 401
     assert client.get("/api/admin/logs").status_code == 401

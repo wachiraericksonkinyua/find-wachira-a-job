@@ -2,8 +2,9 @@ name: Keep Alive
 
 on:
   schedule:
-    # Daily at 08:00 UTC.
-    - cron: "0 8 * * *"
+    # Every 10 minutes. GitHub may delay scheduled jobs, so use an external
+    # uptime monitor as well if Render's free instance must never sleep.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -31,13 +32,13 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Point the secret at /api/telemetry instead of /health to also warm
-      # Postgres: telemetry calls postgres_available(), which opens a
-      # short-lived database connection.
-      - name: Curl health endpoint
+      # Point BACKEND_HEALTH_URL at /api/keepalive. Unlike /health, that route
+      # runs `SELECT 1` against Postgres when configured, keeping both Render
+      # and a free Supabase project warm.
+      - name: Curl keepalive endpoint
         if: steps.config.outputs.configured == 'true'
         env:
           BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
         run: |
           set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 5 --max-time 30 "$BACKEND_HEALTH_URL"
+          curl -fsSL --retry 3 --retry-delay 5 --max-time 30 "$BACKEND_HEALTH_URL" | tail -c 500
