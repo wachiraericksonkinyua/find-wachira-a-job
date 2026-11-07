@@ -5,6 +5,8 @@ import Projects from './components/Projects.vue'
 import Match from './components/Match.vue'
 import Interrogate from './components/Interrogate.vue'
 import ExcuseBuster from './components/ExcuseBuster.vue'
+import RedTeamLab from './components/RedTeamLab.vue'
+import CinematicLanding from './components/CinematicLanding.vue'
 import BookSection from './components/BookSection.vue'
 
 // Reactive state variables
@@ -68,18 +70,43 @@ onMounted(async () => {
           </span>
         </div>
 
-        <!-- Playful / Professional Mode Toggle Button -->
-        <button
-          @click="professionalMode = !professionalMode"
-          class="px-3 py-1 border border-[#22345E] bg-[#101A33] text-xs font-mono-tech text-[#E6F1FF] cursor-pointer hover:border-[#19E3FF]"
-        >
-          MODE: {{ professionalMode ? 'PROFESSIONAL 👔' : 'PLAYFUL 👾' }}
-        </button>
+        <div class="flex items-center gap-2">
+          <nav aria-label="Quick section links" class="hidden sm:flex items-center gap-1.5">
+            <a
+              href="#projects"
+              class="px-2 py-1 border border-[#22345E] bg-[#0D1630] font-mono-tech text-[10px] text-[#8FA6C8] hover:border-[#19E3FF] hover:text-[#19E3FF]"
+            >
+              PROJECTS
+            </a>
+            <a
+              href="#lab"
+              class="px-2 py-1 border border-[#FF4D8D]/70 bg-[#2A1220] font-mono-tech text-[10px] text-[#FF4D8D] hover:bg-[#FF4D8D] hover:text-[#06101F]"
+            >
+              /LAB
+            </a>
+            <a
+              href="#book"
+              class="px-2 py-1 border border-[#3DF5A6]/70 bg-[#0D2A24] font-mono-tech text-[10px] text-[#3DF5A6] hover:bg-[#3DF5A6] hover:text-[#06101F]"
+            >
+              BOOK
+            </a>
+          </nav>
+
+          <!-- Playful / Professional Mode Toggle Button -->
+          <button
+            @click="professionalMode = !professionalMode"
+            class="px-3 py-1 border border-[#22345E] bg-[#101A33] text-xs font-mono-tech text-[#E6F1FF] cursor-pointer hover:border-[#19E3FF]"
+          >
+            MODE: {{ professionalMode ? 'PROFESSIONAL 👔' : 'PLAYFUL 👾' }}
+          </button>
+        </div>
       </div>
     </header>
 
     <!-- Main Content Area -->
     <main class="max-w-4xl mx-auto px-5 pt-10">
+      <!-- Four-slide secure-boot intro + 2.5D desk/wall hotspots -->
+      <CinematicLanding />
       <div class="mb-6 flex flex-wrap gap-2 font-mono-tech text-[10px]">
         <span class="px-2 py-1 border border-[#19E3FF] bg-[#0D2230] text-[#19E3FF]">
           {{ vectorLabel }}
@@ -173,6 +200,7 @@ onMounted(async () => {
       <Match />
       <Interrogate />
       <ExcuseBuster />
+      <RedTeamLab />
 
       <!-- Booking / contact target for the sticky CTA and the pet menu -->
 
