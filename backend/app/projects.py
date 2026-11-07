@@ -4,7 +4,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app import content_store
 
 
 class Project(BaseModel):
@@ -14,6 +16,10 @@ class Project(BaseModel):
     build: str
     outcome: str
     stack: list[str]
+    repo_url: str | None = None
+    demo_url: str | None = None
+    custom: bool = False
+    reactions: dict[str, int] = Field(default_factory=lambda: {"heart": 0, "roast": 0})
 
 
 class ProjectChunk(TypedDict):
@@ -26,14 +32,23 @@ class ProjectChunk(TypedDict):
 def load_projects() -> list[Project]:
     path = Path(__file__).parent / "projects_data.json"
     with open(path, "r", encoding="utf-8") as f:
-        projects = [Project(**item) for item in json.load(f)]
-        return projects
+        base_projects = [Project(**item) for item in json.load(f)]
+
+    custom_projects = [
+        Project(**item) for item in content_store.list_custom_projects(status="published")
+    ]
+    merged = base_projects + custom_projects
+
+    counts = content_store.reaction_counts()
+    for project in merged:
+        project.reactions = counts.get(project.id, {"heart": 0, "roast": 0})
+    return merged
 
 
 def get_project(project_id: str) -> Project | None:
-    for p in load_projects():
-        if p.id == project_id:
-            return p
+    for project in load_projects():
+        if project.id == project_id:
+            return project
     return None
 
 

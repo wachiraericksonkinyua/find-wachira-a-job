@@ -1,5 +1,9 @@
 import os
 import secrets
+import time
+import uuid
+from collections import deque
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,14 +17,17 @@ from app.apply_assistant import (
     list_jobs,
     update_job_status,
 )
+from app import content_store
 from app.board import (
     BoardSubmission,
     EventRequest,
     TakedownRequest,
+    admin_entries,
     admin_stats,
     approve_entry,
     list_approved,
     record_event,
+    reject_entry,
     submit_entry,
     takedown_entry,
 )
@@ -44,6 +51,25 @@ from app.llm import (
 )
 from app.match import MatchRequest, MatchResponse, run_match
 from app.pet import InteractRequest, compute_state, load_state, record_interaction
+from app.portfolio import (
+    ProjectAdminCreate,
+    ProjectAdminUpdate,
+    ProjectReaction,
+    create_project,
+    delete_project,
+    list_admin_projects,
+    update_project,
+)
+from app.roasts import (
+    RoastModeration,
+    RoastSubmission,
+    admin_roasts,
+    approve_roast,
+    delete_roast,
+    public_roasts,
+    reject_roast,
+    submit_roast,
+)
 from app.rate_limit import (
     analytics_limiter,
     apply_limiter,
@@ -102,6 +128,29 @@ def require_admin_key(x_admin_key: str | None) -> None:
         raise HTTPException(status_code=503, detail="Admin key is not configured.")
     if not x_admin_key or not secrets.compare_digest(x_admin_key, expected):
         raise HTTPException(status_code=401, detail="Invalid admin key.")
+
+REQUEST_LOGS: deque[dict] = deque(maxlen=100)
+
+
+@app.middleware("http")
+async def request_log_middleware(request: Request, call_next):
+    request_id = uuid.uuid4().hex[:12]
+    started = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    REQUEST_LOGS.append(
+        {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "duration_ms": duration_ms,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 SECURITY_CONTROLS = [
     "OWASP-LLM01-Untrusted-Delimiters",
@@ -466,3 +515,191 @@ def apply_job_status(job_id: str, payload: JobStatusUpdate):
         raise HTTPException(status_code=404, detail="Tracked job not found.") from None
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+@app.get("/api/roasts")
+def get_roasts():
+    return public_roasts()
+
+
+@app.post("/api/roasts")
+def create_roast(payload: RoastSubmission, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not board_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many roast submissions.")
+    return submit_roast(payload)
+
+
+@app.get("/api/admin/roasts")
+def get_admin_roasts(
+    status: str | None = Query(default=None, pattern="^(pending|approved|rejected)$"),
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return admin_roasts(status)
+
+
+@app.post("/api/admin/roasts/{roast_id}/approve")
+def approve_roast_route(
+    roast_id: str,
+    payload: RoastModeration | None = None,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    try:
+        return approve_roast(roast_id, payload.note if payload else "")
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Roast not found.") from None
+
+
+@app.post("/api/admin/roasts/{roast_id}/reject")
+def reject_roast_route(
+    roast_id: str,
+    payload: RoastModeration | None = None,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    try:
+        return reject_roast(roast_id, payload.note if payload else "")
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Roast not found.") from None
+
+
+@app.delete("/api/admin/roasts/{roast_id}")
+def delete_roast_route(
+    roast_id: str,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    if not delete_roast(roast_id):
+        raise HTTPException(status_code=404, detail="Roast not found.")
+    return {"deleted": True, "id": roast_id}
+
+
+@app.get("/api/admin/board")
+def get_admin_board(
+    status: str | None = Query(default=None, pattern="^(pending|approved|rejected)$"),
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return admin_entries(status)
+
+
+@app.post("/api/admin/board/{entry_id}/reject")
+def reject_board_entry(
+    entry_id: str,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    try:
+        return reject_entry(entry_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Board entry not found.") from None
+
+
+@app.get("/api/admin/projects")
+def get_admin_projects(
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return list_admin_projects()
+
+
+@app.post("/api/admin/projects")
+def create_admin_project(
+    payload: ProjectAdminCreate,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return create_project(payload)
+
+
+@app.put("/api/admin/projects/{project_id}")
+def update_admin_project(
+    project_id: str,
+    payload: ProjectAdminUpdate,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    try:
+        return update_project(project_id, payload)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found.") from None
+
+
+@app.delete("/api/admin/projects/{project_id}")
+def delete_admin_project(
+    project_id: str,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    if not delete_project(project_id):
+        raise HTTPException(status_code=404, detail="Project not found.")
+    return {"deleted": True, "id": project_id}
+
+
+@app.get("/api/admin/logs")
+def get_admin_logs(
+    limit: int = Query(default=100, ge=1, le=500),
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return content_store.list_admin_logs(limit=limit)
+
+
+@app.post("/api/projects/{project_id}/reactions")
+def react_to_project(
+    project_id: str,
+    payload: ProjectReaction,
+    request: Request,
+):
+    client_ip = request.client.host if request.client else "unknown"
+    if not board_limiter.allow(client_ip):
+        raise HTTPException(status_code=429, detail="Too many project reactions.")
+    if not get_project(project_id):
+        raise HTTPException(status_code=404, detail="Project not found.")
+    try:
+        return content_store.record_reaction(project_id, payload.reaction)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+def _limiter_snapshot(name: str, limiter) -> dict[str, int | str]:
+    return {
+        "name": name,
+        "max_requests": limiter.max_requests,
+        "window_seconds": limiter.window_seconds,
+        "active_clients": len(limiter._hits),
+    }
+
+
+@app.get("/api/system/logs")
+def system_logs():
+    from app.rate_limit import (
+        analytics_limiter,
+        apply_limiter,
+        board_limiter as board_limiter_ref,
+        interact_limiter,
+        llm_limiter,
+    )
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "health": {
+            "status": "ok",
+            "database": "postgres" if postgres_available() else "json-fallback",
+        },
+        "vector_store": "pgvector" if postgres_available() else "local_json",
+        "indexed_chunks": sum(1 for _ in iter_project_chunks()),
+        "llm_providers": configured_providers(),
+        "security_controls": SECURITY_CONTROLS,
+        "rate_limits": [
+            _limiter_snapshot("llm", llm_limiter),
+            _limiter_snapshot("interact", interact_limiter),
+            _limiter_snapshot("redteam", redteam_limiter),
+            _limiter_snapshot("analytics", analytics_limiter),
+            _limiter_snapshot("board", board_limiter_ref),
+            _limiter_snapshot("apply", apply_limiter),
+        ],
+        "requests": list(REQUEST_LOGS)[-50:],
+    }

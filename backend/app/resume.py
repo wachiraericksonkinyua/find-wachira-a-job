@@ -6,11 +6,14 @@ from pathlib import Path
 
 from fpdf import FPDF
 
+from app import content_store
+
 DATA_FILE = Path(__file__).with_name("resume_data.json")
 
-# The PDF only changes when resume_data.json changes, so cache the rendered
-# bytes and invalidate on mtime instead of rebuilding on every request.
-_cache: tuple[float, bytes] | None = None
+# Invalidate the PDF cache on either the JSON file mtime or a change to the
+# admin-managed project table, so a new project automatically appears in the
+# downloadable resume.
+_cache: tuple[tuple[float, str], bytes] | None = None
 _lock = threading.Lock()
 
 NAVY = (16, 42, 67)
@@ -20,8 +23,30 @@ BODY = (34, 40, 49)
 
 
 def load_resume_data() -> dict:
-    """Read the structured source of truth (safe to expose as JSON)."""
-    return json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    """Read structured resume data plus admin-managed projects."""
+    data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+
+    existing_names = {
+        project.get("name")
+        for project in data.get("projects", [])
+        if isinstance(project, dict)
+    }
+    for project in content_store.list_custom_projects(status="published"):
+        if project["title"] in existing_names:
+            continue
+        bullets = [
+            project.get("problem", ""),
+            project.get("build", ""),
+            project.get("outcome", ""),
+        ]
+        data.setdefault("projects", []).append(
+            {
+                "name": project["title"],
+                "url": project.get("demo_url") or project.get("repo_url"),
+                "bullets": [bullet for bullet in bullets if bullet],
+            }
+        )
+    return data
 
 
 def _section(pdf: FPDF, title: str) -> None:
@@ -145,16 +170,16 @@ def _build_pdf(data: dict) -> bytes:
 
 
 def render_resume_pdf() -> bytes:
-    """Return a cached, deterministic PDF built from resume_data.json."""
+    """Return a cached, deterministic PDF built from resume + project data."""
     global _cache
 
-    mtime = DATA_FILE.stat().st_mtime
+    cache_key = (DATA_FILE.stat().st_mtime, content_store.project_revision())
     with _lock:
-        if _cache and _cache[0] == mtime:
+        if _cache and _cache[0] == cache_key:
             return _cache[1]
 
     pdf_bytes = _build_pdf(load_resume_data())
 
     with _lock:
-        _cache = (mtime, pdf_bytes)
+        _cache = (cache_key, pdf_bytes)
     return pdf_bytes

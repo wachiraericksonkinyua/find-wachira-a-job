@@ -20,6 +20,10 @@ PROTECTED_FILES = (
     "backend/app/redteam_state.json",
     "backend/app/board_state.json",
     "backend/app/apply_jobs.json",
+    "backend/app/roast_wall.json",
+    "backend/app/custom_projects.json",
+    "backend/app/project_reactions.json",
+    "backend/app/admin_logs.json",
 )
 
 # Only real-looking credentials are matched. Documentation placeholders are

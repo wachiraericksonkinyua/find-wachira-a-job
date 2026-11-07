@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
 import tempfile
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,10 +29,38 @@ from pydantic import BaseModel, StringConstraints, field_validator
 from typing_extensions import Annotated
 
 from app.bookings import get_bookings
+from app.embeddings import _connect_postgres
 from app.redteam import security_report
 
 BOARD_STATE_FILE = Path(__file__).with_name("board_state.json")
+logger = logging.getLogger(__name__)
 _lock = threading.Lock()
+_pg_retry_after = 0.0
+
+_SCHEMA_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS board_submissions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        pitch TEXT NOT NULL,
+        link TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        takedown_hash TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS analytics_events (
+        id BIGSERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        session TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS board_submissions_status_idx ON board_submissions (status, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS analytics_events_name_idx ON analytics_events (name, created_at DESC)",
+]
 
 EventName = Literal[
     "page_view",
@@ -137,6 +167,49 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _iso(value: Any) -> Any:
+    return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+def _with_pg_schema() -> Any | None:
+    global _pg_retry_after
+
+    if time.monotonic() < _pg_retry_after:
+        return None
+    connection = _connect_postgres()
+    if connection is None:
+        _pg_retry_after = time.monotonic() + 30
+        return None
+    try:
+        with connection.cursor() as cursor:
+            for statement in _SCHEMA_STATEMENTS:
+                cursor.execute(statement)
+            for entry in SEED_ENTRIES:
+                cursor.execute(
+                    "INSERT INTO board_submissions "
+                    "(id, name, role, pitch, link, status, takedown_hash, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (id) DO NOTHING",
+                    (
+                        entry["id"],
+                        entry["name"],
+                        entry["role"],
+                        entry["pitch"],
+                        entry["link"],
+                        entry["status"],
+                        entry["takedown_hash"],
+                        entry["created_at"],
+                    ),
+                )
+        _pg_retry_after = 0.0
+        return connection
+    except Exception as exc:
+        logger.warning("Could not prepare board tables (%s).", exc)
+        _pg_retry_after = time.monotonic() + 30
+        connection.close()
+        return None
+
+
 def _empty_state() -> dict[str, Any]:
     return {
         "entries": [dict(entry) for entry in SEED_ENTRIES],
@@ -205,7 +278,32 @@ def _public_entry(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _admin_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **_public_entry(entry),
+        "status": str(entry.get("status", "pending")),
+        "created_at": _iso(entry.get("created_at")),
+    }
+
+
 def list_approved() -> list[dict[str, Any]]:
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            from psycopg.rows import dict_row
+
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    "SELECT id, name, role, pitch, link FROM board_submissions "
+                    "WHERE status = 'approved' ORDER BY name ASC"
+                )
+                rows = cursor.fetchall()
+            return [_public_entry(row) for row in rows]
+        except Exception as exc:
+            logger.warning("PostgreSQL board read failed (%s).", exc)
+        finally:
+            connection.close()
+
     with _lock:
         state = _load_state()
         entries = [
@@ -214,6 +312,43 @@ def list_approved() -> list[dict[str, Any]]:
             if isinstance(entry, dict) and entry.get("status") == "approved"
         ]
     entries.sort(key=lambda entry: entry["name"].lower())
+    return entries
+
+
+def admin_entries(status: str | None = None) -> list[dict[str, Any]]:
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            from psycopg.rows import dict_row
+
+            with connection.cursor(row_factory=dict_row) as cursor:
+                if status:
+                    cursor.execute(
+                        "SELECT id, name, role, pitch, link, status, created_at "
+                        "FROM board_submissions WHERE status = %s "
+                        "ORDER BY created_at DESC",
+                        (status,),
+                    )
+                else:
+                    cursor.execute(
+                        "SELECT id, name, role, pitch, link, status, created_at "
+                        "FROM board_submissions ORDER BY created_at DESC"
+                    )
+                rows = cursor.fetchall()
+            return [_admin_entry(row) for row in rows]
+        except Exception as exc:
+            logger.warning("PostgreSQL admin board read failed (%s).", exc)
+        finally:
+            connection.close()
+
+    with _lock:
+        state = _load_state()
+        entries = [
+            _admin_entry(entry)
+            for entry in state["entries"]
+            if isinstance(entry, dict) and (not status or entry.get("status") == status)
+        ]
+    entries.sort(key=lambda entry: entry.get("created_at") or "", reverse=True)
     return entries
 
 
@@ -230,6 +365,36 @@ def submit_entry(payload: BoardSubmission) -> dict[str, Any]:
         "created_at": _now(),
     }
 
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO board_submissions "
+                    "(id, name, role, pitch, link, status, takedown_hash, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (
+                        entry["id"],
+                        entry["name"],
+                        entry["role"],
+                        entry["pitch"],
+                        entry["link"],
+                        entry["status"],
+                        entry["takedown_hash"],
+                        entry["created_at"],
+                    ),
+                )
+            return {
+                "id": entry["id"],
+                "status": entry["status"],
+                "takedown_token": token,
+                "message": "Profile submitted for review. Keep the takedown token private.",
+            }
+        except Exception as exc:
+            logger.warning("PostgreSQL board insert failed (%s).", exc)
+        finally:
+            connection.close()
+
     with _lock:
         state = _load_state()
         state["entries"].append(entry)
@@ -244,6 +409,30 @@ def submit_entry(payload: BoardSubmission) -> dict[str, Any]:
 
 
 def takedown_entry(entry_id: str, token: str) -> dict[str, Any]:
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT takedown_hash FROM board_submissions WHERE id = %s",
+                    (entry_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise KeyError(entry_id)
+                if not secrets.compare_digest(str(row[0]), _hash_token(token)):
+                    raise PermissionError("Invalid takedown token")
+                cursor.execute(
+                    "DELETE FROM board_submissions WHERE id = %s", (entry_id,)
+                )
+            return {"removed": True, "id": entry_id}
+        except (KeyError, PermissionError):
+            raise
+        except Exception as exc:
+            logger.warning("PostgreSQL board takedown failed (%s).", exc)
+        finally:
+            connection.close()
+
     with _lock:
         state = _load_state()
         for index, entry in enumerate(state["entries"]):
@@ -261,6 +450,32 @@ def takedown_entry(entry_id: str, token: str) -> dict[str, Any]:
 
 
 def approve_entry(entry_id: str) -> dict[str, Any]:
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            from psycopg.rows import dict_row
+
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    "UPDATE board_submissions SET status = 'approved' "
+                    "WHERE id = %s RETURNING id, name, role, pitch, link, status, created_at",
+                    (entry_id,),
+                )
+                row = cursor.fetchone()
+            if row is None:
+                raise KeyError(entry_id)
+            return {
+                "id": entry_id,
+                "status": "approved",
+                "entry": _public_entry(row),
+            }
+        except KeyError:
+            raise
+        except Exception as exc:
+            logger.warning("PostgreSQL board approval failed (%s).", exc)
+        finally:
+            connection.close()
+
     with _lock:
         state = _load_state()
         for entry in state["entries"]:
@@ -269,6 +484,35 @@ def approve_entry(entry_id: str) -> dict[str, Any]:
             entry["status"] = "approved"
             _save_state(state)
             return {"id": entry_id, "status": "approved", "entry": _public_entry(entry)}
+        raise KeyError(entry_id)
+
+
+def reject_entry(entry_id: str) -> dict[str, Any]:
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE board_submissions SET status = 'rejected' WHERE id = %s",
+                    (entry_id,),
+                )
+                if cursor.rowcount == 0:
+                    raise KeyError(entry_id)
+            return {"id": entry_id, "status": "rejected"}
+        except KeyError:
+            raise
+        except Exception as exc:
+            logger.warning("PostgreSQL board rejection failed (%s).", exc)
+        finally:
+            connection.close()
+
+    with _lock:
+        state = _load_state()
+        for entry in state["entries"]:
+            if isinstance(entry, dict) and entry.get("id") == entry_id:
+                entry["status"] = "rejected"
+                _save_state(state)
+                return {"id": entry_id, "status": "rejected"}
         raise KeyError(entry_id)
 
 
@@ -284,6 +528,22 @@ def record_event(payload: EventRequest) -> None:
         "session": _clean_session(payload.session),
         "created_at": _now(),
     }
+
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO analytics_events (name, session, created_at) "
+                    "VALUES (%s, %s, %s)",
+                    (event["name"], event["session"], event["created_at"]),
+                )
+            return
+        except Exception as exc:
+            logger.warning("PostgreSQL analytics insert failed (%s).", exc)
+        finally:
+            connection.close()
+
     with _lock:
         state = _load_state()
         state["event_counts"][payload.name] = (
@@ -294,13 +554,34 @@ def record_event(payload: EventRequest) -> None:
         _save_state(state)
 
 
-def admin_stats() -> dict[str, Any]:
+def _event_counts() -> dict[str, int]:
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT name, COUNT(*) FROM analytics_events GROUP BY name"
+                )
+                rows = cursor.fetchall()
+            counts = {name: 0 for name in EVENT_NAMES}
+            for name, total in rows:
+                if name in counts:
+                    counts[str(name)] = int(total)
+            return counts
+        except Exception as exc:
+            logger.warning("PostgreSQL analytics read failed (%s).", exc)
+        finally:
+            connection.close()
+
     with _lock:
-        state = _load_state()
-        counts = dict(state["event_counts"])
-        entries = [entry for entry in state["entries"] if isinstance(entry, dict)]
-        approved = sum(1 for entry in entries if entry.get("status") == "approved")
-        pending = sum(1 for entry in entries if entry.get("status") == "pending")
+        return dict(_load_state()["event_counts"])
+
+
+def admin_stats() -> dict[str, Any]:
+    counts = _event_counts()
+    entries = admin_entries(status=None)
+    approved = sum(1 for entry in entries if entry.get("status") == "approved")
+    pending = sum(1 for entry in entries if entry.get("status") == "pending")
 
     total_bookings = len(get_bookings())
     redteam_stats = security_report()
