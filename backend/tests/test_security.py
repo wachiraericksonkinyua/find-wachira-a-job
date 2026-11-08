@@ -73,7 +73,7 @@ def test_telemetry_contract_and_no_secret_leaks(monkeypatch):
     data = response.json()
     assert data["status"] == "ok"
     assert data["vector_store"] == "pgvector"
-    assert data["indexed_chunks"] == 12
+    assert data["indexed_chunks"] == 27
     assert "OWASP-LLM01-Untrusted-Delimiters" in data["security_controls"]
     assert "Sliding-Window-Rate-Limit" in data["security_controls"]
 

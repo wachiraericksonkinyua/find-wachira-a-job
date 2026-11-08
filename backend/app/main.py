@@ -88,7 +88,12 @@ from app.redteam import (
     security_report as build_security_report,
     submit_flag as submit_redteam_flag,
 )
-from app.resume import load_resume_data, render_resume_pdf
+from app.resume import (
+    ResumeAdminUpdate,
+    load_resume_data,
+    render_resume_pdf,
+    save_resume_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +314,39 @@ def admin_leads(
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
 ):
     require_admin_key(x_admin_key)
-    return {"bookings": get_bookings(), "pet_leads": get_pet_leads()}
+    bookings = get_bookings()
+    pet_leads = get_pet_leads()
+
+    unified = [
+        {
+            "id": booking["id"],
+            "kind": "booking",
+            "created_at": booking.get("created_at"),
+            "name": booking.get("name"),
+            "company": booking.get("company"),
+            "contact": booking.get("contact"),
+            "notes": booking.get("message") or booking.get("role") or "",
+        }
+        for booking in bookings
+    ]
+    unified += [
+        {
+            "id": f"lead-{index}",
+            "kind": lead.get("type"),
+            "created_at": lead.get("created_at") or lead.get("timestamp"),
+            "name": None,
+            "company": None,
+            "contact": None,
+            "notes": lead.get("note") or "",
+        }
+        for index, lead in enumerate(pet_leads)
+    ]
+    unified.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+    return {
+        "bookings": bookings,
+        "pet_leads": pet_leads,
+        "leads": unified,
+    }
 
 
 @app.get("/api/llm/status")
@@ -555,11 +592,13 @@ def apply_job_status(job_id: str, payload: JobStatusUpdate):
 
 
 @app.get("/api/roasts")
+@app.get("/api/roast-wall")
 def get_roasts():
     return public_roasts()
 
 
 @app.post("/api/roasts")
+@app.post("/api/roast-wall")
 def create_roast(payload: RoastSubmission, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     if not board_limiter.allow(client_ip):
@@ -577,6 +616,7 @@ def get_admin_roasts(
 
 
 @app.post("/api/admin/roasts/{roast_id}/approve")
+@app.post("/api/admin/roast/{roast_id}/approve")
 def approve_roast_route(
     roast_id: str,
     payload: RoastModeration | None = None,
@@ -603,6 +643,7 @@ def reject_roast_route(
 
 
 @app.delete("/api/admin/roasts/{roast_id}")
+@app.delete("/api/admin/roast/{roast_id}")
 def delete_roast_route(
     roast_id: str,
     x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
@@ -684,7 +725,29 @@ def get_admin_logs(
     return content_store.list_admin_logs(limit=limit)
 
 
+@app.get("/api/admin/moderation")
+def admin_moderation(
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    """Unified pending queue for the owner dashboard."""
+    require_admin_key(x_admin_key)
+    return {
+        "roasts": admin_roasts("pending"),
+        "board": admin_entries("pending"),
+    }
+
+
+@app.put("/api/admin/resume")
+def update_resume(
+    payload: ResumeAdminUpdate,
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    require_admin_key(x_admin_key)
+    return {"resume": save_resume_data(payload)}
+
+
 @app.post("/api/projects/{project_id}/reactions")
+@app.post("/api/projects/{project_id}/react")
 def react_to_project(
     project_id: str,
     payload: ProjectReaction,

@@ -10,20 +10,30 @@ const STATS = {
   redteam: { total_attempts: 9, blocked_attacks: 6, successful_breaks: 1 },
 }
 
+const LEADS = {
+  leads: [
+    {
+      id: 'booking-1',
+      kind: 'booking',
+      created_at: '2026-11-07T10:00:00+00:00',
+      name: 'Recruiter One',
+      company: 'Acme',
+      contact: 'recruiter@example.com',
+      notes: 'Backend role.',
+    },
+  ],
+  bookings: [],
+  pet_leads: [],
+}
+
 const ROASTS = [
   {
     id: 'r1',
     text: 'The portfolio is strong but the intro should get to the point faster.',
     advice: 'Lead with proof.',
+    target: 'Portfolio UI',
     status: 'pending',
     created_at: '2026-11-07T10:00:00+00:00',
-  },
-  {
-    id: 'r2',
-    text: 'Great security demos.',
-    advice: null,
-    status: 'approved',
-    created_at: '2026-11-07T09:00:00+00:00',
   },
 ]
 
@@ -43,14 +53,29 @@ const PROJECTS = [
   {
     id: 'p1',
     title: 'Warehouse Signal API',
+    category: 'AI & Full-Stack',
     problem: 'Stockouts were invisible.',
     build: 'FastAPI + PostgreSQL.',
     outcome: 'Alerts before stockouts.',
     stack: ['FastAPI', 'PostgreSQL'],
     repo_url: 'https://github.com/example/warehouse',
     demo_url: 'https://example.com/demo',
+    include_in_resume: true,
   },
 ]
+
+const RESUME = {
+  name: 'Wachira Erickson Kinyua',
+  headline: 'Backend Engineer',
+  location: 'Nairobi',
+  email: 'test@example.com',
+  phone: '+254',
+  summary: 'Builds things.',
+  skills: [{ group: 'Backend', items: ['Python', 'FastAPI'] }],
+  experience: [],
+  education: [],
+  projects: [{ name: 'Warehouse Signal API', bullets: ['Built it.'] }],
+}
 
 const LOGS = [
   {
@@ -75,16 +100,16 @@ function mockAdminApi() {
   const fetchMock = vi.fn().mockImplementation((url: string) => {
     const target = String(url)
     if (target.endsWith('/api/admin/stats')) return Promise.resolve(json(STATS))
-    if (target.includes('/api/admin/roasts/') && target.endsWith('/approve')) {
+    if (target.endsWith('/api/admin/leads')) return Promise.resolve(json(LEADS))
+    if (target.endsWith('/api/admin/moderation')) {
+      return Promise.resolve(json({ roasts: ROASTS, board: BOARD }))
+    }
+    if (target.includes('/api/admin/roast/') && target.endsWith('/approve')) {
       return Promise.resolve(json({ id: 'r1', status: 'approved' }))
     }
-    if (target.includes('/api/admin/roasts/') && target.endsWith('/reject')) {
-      return Promise.resolve(json({ id: 'r1', status: 'rejected' }))
-    }
-    if (target.includes('/api/admin/roasts')) return Promise.resolve(json(ROASTS))
-    if (target.includes('/api/admin/board')) return Promise.resolve(json(BOARD))
-    if (target.includes('/api/admin/projects')) return Promise.resolve(json(PROJECTS))
+    if (target.endsWith('/api/admin/projects')) return Promise.resolve(json(PROJECTS))
     if (target.includes('/api/admin/logs')) return Promise.resolve(json(LOGS))
+    if (target.endsWith('/api/resume.json')) return Promise.resolve(json(RESUME))
     return Promise.resolve(json({}))
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -106,7 +131,7 @@ describe('AdminDashboard.vue', () => {
     vi.unstubAllGlobals()
   })
 
-  it('unlocks with a stored key and renders overview stats', async () => {
+  it('unlocks with a stored key and renders lead stats', async () => {
     sessionStorage.setItem('fwaj_admin_key', 'test-key')
     wrapper = mount(AdminDashboard, {
       global: { stubs: { RouterLink: true } },
@@ -118,7 +143,7 @@ describe('AdminDashboard.vue', () => {
     expect(wrapper.text()).toContain('TOTAL EVENTS')
     expect(wrapper.text()).toContain('15')
     expect(wrapper.text()).toContain('PENDING ROASTS')
-    expect(wrapper.text()).toContain('PENDING BOARD')
+    expect(wrapper.text()).toContain('LEADS, LINKS & BOOKINGS')
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/admin/stats'),
       expect.objectContaining({
@@ -127,37 +152,45 @@ describe('AdminDashboard.vue', () => {
     )
   })
 
-  it('moderates a pending roast and updates its status', async () => {
+  it('moderates a pending roast from the moderation queue', async () => {
     sessionStorage.setItem('fwaj_admin_key', 'test-key')
     wrapper = mount(AdminDashboard, {
       global: { stubs: { RouterLink: true } },
     })
     await flushPromises()
 
-    const roastTab = wrapper.findAll('button').find((button: any) => button.text() === 'ROASTS')
-    await roastTab.trigger('click')
+    const moderationTab = wrapper
+      .findAll('button')
+      .find((button: any) => button.text() === 'MODERATION')
+    await moderationTab.trigger('click')
     expect(wrapper.text()).toContain('The portfolio is strong')
 
     const approve = wrapper.findAll('button').find((button: any) => button.text() === 'APPROVE')
     await approve.trigger('click')
     await flushPromises()
 
-    expect(wrapper.vm.roasts[0].status).toBe('approved')
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/admin/roast/r1/approve'),
+      expect.objectContaining({ method: 'POST' })
+    )
   })
 
-  it('shows the project management form and custom projects', async () => {
+  it('shows the project management form, resume editor, and custom projects', async () => {
     sessionStorage.setItem('fwaj_admin_key', 'test-key')
     wrapper = mount(AdminDashboard, {
       global: { stubs: { RouterLink: true } },
     })
     await flushPromises()
 
-    const projectsTab = wrapper.findAll('button').find((button: any) => button.text() === 'PROJECTS')
-    await projectsTab.trigger('click')
+    const portfolioTab = wrapper
+      .findAll('button')
+      .find((button: any) => button.text() === 'PORTFOLIO')
+    await portfolioTab.trigger('click')
 
     expect(wrapper.text()).toContain('ADD PROJECT')
+    expect(wrapper.text()).toContain('LIVE RESUME EDITOR')
     expect(wrapper.text()).toContain('Warehouse Signal API')
-    expect(wrapper.text()).toContain('Saving regenerates the downloadable PDF resume')
+    expect(wrapper.text()).toContain('INCLUDE IN RESUME PDF')
   })
 
   it('shows an auth error for a rejected key', async () => {

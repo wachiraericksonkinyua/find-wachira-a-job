@@ -36,14 +36,17 @@ def _validate_optional_url(value: str | None) -> str | None:
 
 class ProjectAdminCreate(BaseModel):
     title: Annotated[str, Field(min_length=3, max_length=120)]
+    category: Annotated[str, Field(max_length=60)] = "Engineering"
     problem: Annotated[str, Field(min_length=10, max_length=2000)]
     build: Annotated[str, Field(min_length=10, max_length=4000)]
     outcome: Annotated[str, Field(min_length=5, max_length=2000)]
     stack: list[str] = Field(default_factory=list, max_length=20)
     repo_url: str | None = Field(default=None, max_length=500)
     demo_url: str | None = Field(default=None, max_length=500)
+    live_url: str | None = Field(default=None, max_length=500)
+    include_in_resume: bool = True
 
-    @field_validator("title", "problem", "build", "outcome", mode="before")
+    @field_validator("title", "category", "problem", "build", "outcome", mode="before")
     @classmethod
     def clean_text(cls, value: Any) -> Any:
         return _clean_text(value)
@@ -65,7 +68,7 @@ class ProjectAdminCreate(BaseModel):
                 cleaned.append(item)
         return cleaned[:20]
 
-    @field_validator("repo_url", "demo_url")
+    @field_validator("repo_url", "demo_url", "live_url")
     @classmethod
     def validate_url(cls, value: str | None) -> str | None:
         return _validate_optional_url(value)
@@ -77,14 +80,17 @@ class ProjectReaction(BaseModel):
 
 class ProjectAdminUpdate(BaseModel):
     title: Annotated[str | None, Field(default=None, min_length=3, max_length=120)]
+    category: Annotated[str | None, Field(default=None, max_length=60)]
     problem: Annotated[str | None, Field(default=None, min_length=10, max_length=2000)]
     build: Annotated[str | None, Field(default=None, min_length=10, max_length=4000)]
     outcome: Annotated[str | None, Field(default=None, min_length=5, max_length=2000)]
     stack: list[str] | None = Field(default=None, max_length=20)
     repo_url: str | None = Field(default=None, max_length=500)
     demo_url: str | None = Field(default=None, max_length=500)
+    live_url: str | None = Field(default=None, max_length=500)
+    include_in_resume: bool | None = None
 
-    @field_validator("title", "problem", "build", "outcome", mode="before")
+    @field_validator("title", "category", "problem", "build", "outcome", mode="before")
     @classmethod
     def clean_text(cls, value: Any) -> Any:
         return _clean_text(value)
@@ -108,7 +114,7 @@ class ProjectAdminUpdate(BaseModel):
                 cleaned.append(item)
         return cleaned[:20]
 
-    @field_validator("repo_url", "demo_url")
+    @field_validator("repo_url", "demo_url", "live_url")
     @classmethod
     def validate_url(cls, value: str | None) -> str | None:
         return _validate_optional_url(value)
@@ -121,12 +127,14 @@ def list_admin_projects() -> list[dict[str, Any]]:
 def create_project(payload: ProjectAdminCreate) -> dict[str, Any]:
     project = content_store.create_custom_project(
         title=payload.title,
+        category=payload.category,
         problem=payload.problem,
         build=payload.build,
         outcome=payload.outcome,
         stack=payload.stack,
         repo_url=payload.repo_url,
-        demo_url=payload.demo_url,
+        demo_url=payload.live_url or payload.demo_url,
+        include_in_resume=payload.include_in_resume,
     )
     content_store.log_admin(
         "project.create", project["id"], f"Added project: {project['title']}"
@@ -138,6 +146,9 @@ def update_project(
     project_id: str, payload: ProjectAdminUpdate
 ) -> dict[str, Any]:
     changes = payload.model_dump(exclude_none=True)
+    # ``live_url`` is the dashboard's friendlier name for the stored demo URL.
+    if "live_url" in changes:
+        changes["demo_url"] = changes.pop("live_url")
     project = content_store.update_custom_project(project_id, **changes)
     content_store.log_admin(
         "project.update", project_id, f"Updated project: {project['title']}"

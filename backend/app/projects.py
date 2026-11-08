@@ -12,12 +12,14 @@ from app import content_store
 class Project(BaseModel):
     id: str
     title: str
+    category: str = "Engineering"
     problem: str
     build: str
     outcome: str
     stack: list[str]
     repo_url: str | None = None
     demo_url: str | None = None
+    include_in_resume: bool = True
     custom: bool = False
     reactions: dict[str, int] = Field(default_factory=lambda: {"heart": 0, "roast": 0})
 

@@ -348,3 +348,35 @@
 - Added 15 verified Redis, Render, Supabase, GitHub Actions, uptime-monitor, and
   FastAPI lifespan links to the study vault and `LEARNING_RESOURCES.md`.
 - Updated the study-vault link checker with the new operations links.
+
+## Day 47: Multi-Page Routing, Swipe Deck, Roast Wall & Owner Admin
+
+### Router and navigation
+- Moved the canonical router to `web/src/router/index.js` and kept `web/src/router.js` as a re-export so existing imports keep working.
+- Routes now cover `/`, `/projects`, `/wall`, `/match`, `/lab`, `/board`, and `/admin`, with the supporting apply/meet/logs/contact pages retained.
+- The app shell keeps the sticky top navigation, active-route styling, mobile menu, and API health indicator.
+
+### Tinder-style swipe deck
+- Rebuilt `web/src/components/Projects.vue` with a Swipe Mode / Grid Mode toggle.
+- Swipe Mode supports touch and arrow keys, live heart counts through `POST /api/projects/{id}/react`, and a quick inline roast form on each card.
+- Roast submissions go straight to the moderation queue with `status="pending"` and trigger an Ugali the Monkey comeback before the deck advances.
+- Clicking the card body opens the full case study modal with problem, build, outcome, stack, live URL, and GitHub URL.
+- Added engineering and real-world IT-hustle cards (RAG + pgvector, Daraja STK Push, OWASP LLM red teaming, printer triage, 2 AM network triage).
+
+### Anonymous Roast Wall
+- `GET /api/roast-wall` and `POST /api/roast-wall` alias the existing roast routes.
+- Public output now includes `@anonymous_dev`, a target tag, text, and timestamp; emails, IPs, and company names are never stored or returned.
+- Added `target` support to the roast schema and form, with preset tags plus a custom target.
+- Seeded three approved self-aware roasts, but only when the roster is completely empty so a real pending/rejected submission is never shadowed.
+
+### Owner admin dashboard
+- Rebuilt `web/src/pages/AdminDashboard.vue` around three working tabs: Leads, Moderation Queue, and Portfolio / Live Resume.
+- `GET /api/admin/leads` now returns a unified booking + monkey-menu lead feed (links, job leads, intros, referrals) with notes and timestamps.
+- `GET /api/admin/moderation` combines pending roasts and board entries; approve/delete actions use the one-click routes.
+- Added `PUT /api/admin/resume` and the `ResumeAdminUpdate` model; owner edits persist to `resume_override.json` and invalidate the PDF cache.
+- Project editor now supports `category`, `include_in_resume`, and `live_url`; only cards marked for the resume are merged into the PDF.
+
+### Verification
+- Added `backend/tests/test_admin_wall_swipe.py` covering pending-roast invisibility until approval, `include_in_resume=True` project data in a valid `%PDF` response, resume overlay edits, and unauthorized admin rejection.
+- Added Vitest coverage for the swipe deck (`tests/components/SwipeDeck.test.js`) and the Roast Wall (`tests/components/RoastWall.test.js`), and updated the dashboard spec for the new tabs.
+- Verified `pytest -q` (**48 passed**), `npm test -- --run` (**95 passed**), and `npm run build`.

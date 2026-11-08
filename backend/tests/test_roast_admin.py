@@ -63,7 +63,7 @@ def test_roast_wall_is_anonymous_and_moderated(client):
 
     public = client.get("/api/roasts").json()
     assert len(public) == 1
-    assert set(public[0]) == {"id", "text", "advice", "created_at"}
+    assert set(public[0]) == {"id", "author", "target", "text", "advice", "created_at"}
     assert "company" not in public[0]
     assert "email" not in public[0]
 

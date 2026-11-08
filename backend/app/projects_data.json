@@ -2,6 +2,7 @@
   {
     "id": "find-wachira-a-job",
     "title": "Find Wachira a Job: AI Portfolio",
+    "category": "AI & Full-Stack",
     "problem": "A PDF resume cannot show live backend, streaming AI, or security skills.",
     "build": "Vue 3 and FastAPI app with SSE token streaming, Groq and Gemini fallback, untrusted-input delimiters against prompt injection, per-IP rate limiting, a TTL cache keyed on resume file modification time, and a pytest regression test for partial-reply caching.",
     "outcome": "Recruiters can paste a job description and get a verdict grounded in my real resume data. An Excuse Buster answers rejection excuses from the same facts.",
@@ -10,6 +11,7 @@
   {
     "id": "ayutech",
     "title": "AyuTech Motors: E-commerce and Inventory Platform",
+    "category": "AI & Full-Stack",
     "problem": "An auto parts business needed inventory, payments, and customer inquiries in one system.",
     "build": "FastAPI backend with a Flet interface and Supabase PostgreSQL. Safaricom Daraja STK push payments with webhook callback verification, a WhatsApp to database pipeline through Meta Cloud API, and role-based authentication.",
     "outcome": "Automated M-Pesa payment confirmation and routed WhatsApp customer inquiries into the database.",
@@ -18,6 +20,7 @@
   {
     "id": "medical-rag-chatbot",
     "title": "End-to-End Medical RAG Chatbot",
+    "category": "AI & Full-Stack",
     "problem": "A medical chatbot needs to answer from a trusted document base, not from the model's memory.",
     "build": "Retrieval-Augmented Generation chatbot using Llama 2 and LangChain, with Pinecone for retrieval.",
     "outcome": "A working chatbot that retrieves medical passages before answering.",
@@ -26,9 +29,55 @@
   {
     "id": "scam-detector",
     "title": "Ponzi Scheme Scam Detector",
+    "category": "AI & Full-Stack",
     "problem": "Job seekers can be lured by fraudulent job posts and Ponzi schemes.",
     "build": "A web app where you paste a URL or job description. It uses the Groq LLM API to flag fraud patterns.",
     "outcome": "A working tool that flags suspicious job posts and schemes.",
     "stack": ["Python", "Groq API"]
+  },
+  {
+    "id": "production-rag-pgvector",
+    "title": "Production RAG pipelines with FastAPI & pgvector",
+    "category": "AI & Full-Stack",
+    "problem": "Recruiters and users need answers grounded in real documents instead of model guesses.",
+    "build": "Chunking and embedding pipeline that stores vectors in pgvector, retrieves the top passages, attaches server-side citations, and streams the answer from FastAPI with a local JSON fallback.",
+    "outcome": "Every answer can be traced back to a source chunk, and the app still works offline when Postgres is unavailable.",
+    "stack": ["FastAPI", "pgvector", "PostgreSQL", "Embeddings", "SSE"]
+  },
+  {
+    "id": "mpesa-daraja-stk",
+    "title": "Safaricom M-Pesa Daraja STK Push workflows",
+    "category": "AI & Full-Stack",
+    "problem": "Small businesses need to collect payment without manually reconciling M-Pesa messages.",
+    "build": "OAuth token handling, STK Push initiation, callback signature validation, idempotent payment records, and clear failure-path feedback for cancelled or timed-out prompts.",
+    "outcome": "Payments confirm themselves in the database and every failed prompt leaves an auditable trail.",
+    "stack": ["Daraja API", "FastAPI", "PostgreSQL", "Webhooks"]
+  },
+  {
+    "id": "llm-red-team",
+    "title": "Red-teaming LLMs against OWASP Top 10",
+    "category": "AI & Full-Stack",
+    "problem": "LLM applications often trust user input more than they should.",
+    "build": "A four-level prompt-injection CTF sandbox plus a regression suite covering prompt injection, insecure output handling, excessive agency, and sensitive-information disclosure.",
+    "outcome": "Attack attempts are rate-limited, flags stay server-side, and every defense is documented in a threat model.",
+    "stack": ["OWASP LLM Top 10", "Python", "FastAPI", "CTF"]
+  },
+  {
+    "id": "printer-whisperer",
+    "title": "Fixing printers when they smell fear",
+    "category": "IT Specialist Hustle",
+    "problem": "Court staff lose hours to driver conflicts, paper jams, and printers that refuse to acknowledge the network.",
+    "build": "Judiciary of Kenya placement: endpoint setup, driver reinstalls, spooler recovery, network printer configuration, and a plain-language troubleshooting checklist for recurring faults.",
+    "outcome": "Battle-tested patience and a lower repeat-fault rate because users learn the first three checks themselves.",
+    "stack": ["Windows", "Print Spooler", "Network Printers", "End-User Support"]
+  },
+  {
+    "id": "night-ops-triage",
+    "title": "Troubleshooting your PC & network at 2 AM",
+    "category": "IT Specialist Hustle",
+    "problem": "A dead connection at 2 AM is never just one problem; DNS, DHCP, cabling, and the ISP all blame each other.",
+    "build": "Structured triage: link lights, IP lease, DNS resolution, gateway reachability, traceroute, and a written incident note so the next person does not start from zero.",
+    "outcome": "Faster isolation of the actual fault and fewer panic reboots of equipment that was fine all along.",
+    "stack": ["Networking", "DNS/DHCP", "Linux", "Windows", "Incident Notes"]
   }
 ]

@@ -1,19 +1,39 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import threading
 from pathlib import Path
+from typing import Any
 
 from fpdf import FPDF
+from pydantic import BaseModel, Field
 
 from app import content_store
 
 DATA_FILE = Path(__file__).with_name("resume_data.json")
+# Owner edits are persisted to an overlay so the original seed data stays
+# intact and tests can isolate the writable file.
+OVERRIDE_FILE = Path(__file__).with_name("resume_override.json")
+
+_EDITABLE_KEYS = (
+    "name",
+    "headline",
+    "location",
+    "email",
+    "phone",
+    "links",
+    "summary",
+    "skills",
+    "experience",
+    "education",
+)
 
 # Invalidate the PDF cache on either the JSON file mtime or a change to the
 # admin-managed project table, so a new project automatically appears in the
 # downloadable resume.
-_cache: tuple[tuple[float, str], bytes] | None = None
+_cache: tuple[tuple[float, float, str], bytes] | None = None
 _lock = threading.Lock()
 
 NAVY = (16, 42, 67)
@@ -22,9 +42,53 @@ MUTED = (90, 100, 110)
 BODY = (34, 40, 49)
 
 
+class ResumeAdminUpdate(BaseModel):
+    """Editable resume sections exposed in the owner dashboard."""
+
+    name: str | None = Field(default=None, max_length=120)
+    headline: str | None = Field(default=None, max_length=200)
+    location: str | None = Field(default=None, max_length=120)
+    email: str | None = Field(default=None, max_length=160)
+    phone: str | None = Field(default=None, max_length=60)
+    links: list[dict[str, Any]] | None = None
+    summary: str | None = Field(default=None, max_length=3000)
+    skills: list[dict[str, Any]] | None = None
+    experience: list[dict[str, Any]] | None = None
+    education: list[dict[str, Any]] | None = None
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_json_atomic(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_path = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+        os.replace(temp_path, path)
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
 def load_resume_data() -> dict:
-    """Read structured resume data plus admin-managed projects."""
+    """Read structured resume data, owner overrides, and admin-managed projects."""
     data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+
+    override = _read_json(OVERRIDE_FILE)
+    for key in _EDITABLE_KEYS:
+        if key in override:
+            data[key] = override[key]
 
     existing_names = {
         project.get("name")
@@ -32,6 +96,8 @@ def load_resume_data() -> dict:
         if isinstance(project, dict)
     }
     for project in content_store.list_custom_projects(status="published"):
+        if not project.get("include_in_resume", True):
+            continue
         if project["title"] in existing_names:
             continue
         bullets = [
@@ -47,6 +113,23 @@ def load_resume_data() -> dict:
             }
         )
     return data
+
+
+def save_resume_data(payload: ResumeAdminUpdate) -> dict:
+    """Persist owner edits to the overlay and return the merged resume."""
+    override = _read_json(OVERRIDE_FILE)
+    changes = payload.model_dump(exclude_none=True)
+    for key, value in changes.items():
+        if key in _EDITABLE_KEYS:
+            override[key] = value
+    _write_json_atomic(OVERRIDE_FILE, override)
+
+    global _cache
+    with _lock:
+        _cache = None
+    content_store.log_admin("resume.update", None, "Updated live resume data")
+    return load_resume_data()
+
 
 
 def _section(pdf: FPDF, title: str) -> None:
@@ -85,6 +168,9 @@ def _entry_heading(pdf: FPDF, left: str, right: str = "") -> None:
 
 def _build_pdf(data: dict) -> bytes:
     pdf = FPDF(format="A4", unit="mm")
+    # Keep text streams uncompressed so generated resumes stay greppable in
+    # verification tests and simple offline viewers.
+    pdf.set_compression(False)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_margins(15, 15, 15)
     pdf.add_page()
@@ -173,7 +259,12 @@ def render_resume_pdf() -> bytes:
     """Return a cached, deterministic PDF built from resume + project data."""
     global _cache
 
-    cache_key = (DATA_FILE.stat().st_mtime, content_store.project_revision())
+    override_mtime = OVERRIDE_FILE.stat().st_mtime if OVERRIDE_FILE.exists() else 0.0
+    cache_key = (
+        DATA_FILE.stat().st_mtime,
+        override_mtime,
+        content_store.project_revision(),
+    )
     with _lock:
         if _cache and _cache[0] == cache_key:
             return _cache[1]

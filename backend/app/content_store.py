@@ -30,18 +30,56 @@ _pg_retry_after = 0.0
 ROAST_STATUSES = ("pending", "approved", "rejected")
 REACTION_TYPES = ("heart", "roast")
 
+_SEED_ROASTS = [
+    {
+        "text": "This portfolio has more features than my last startup and twice the caffeine.",
+        "advice": "Keep the AI lab, it is the only thing I remember after closing the tab.",
+        "target": "Portfolio UI",
+    },
+    {
+        "text": "The monkey has better uptime than most production teams I have worked with.",
+        "advice": "Ship the resume editor before adding a fourth personality to the monkey.",
+        "target": "Ugali the Monkey",
+    },
+    {
+        "text": "I came to judge the resume and stayed for the printer jokes. Bold strategy.",
+        "advice": "Lead with the case studies, the confetti can wait.",
+        "target": "Printer Whisperer",
+    },
+]
+
+
+def _seed_roasts() -> list[dict[str, Any]]:
+    now = _now()
+    return [
+        {
+            "id": uuid.uuid4().hex,
+            "text": seed["text"],
+            "advice": seed["advice"],
+            "target": seed["target"],
+            "status": "approved",
+            "created_at": now,
+            "moderated_at": now,
+            "moderation_note": "Seed roast.",
+        }
+        for seed in _SEED_ROASTS
+    ]
+
+
 _SCHEMA_STATEMENTS = [
     """
     CREATE TABLE IF NOT EXISTS roast_wall (
         id TEXT PRIMARY KEY,
         text TEXT NOT NULL,
         advice TEXT,
+        target TEXT,
         status TEXT NOT NULL DEFAULT 'pending',
         created_at TIMESTAMPTZ NOT NULL,
         moderated_at TIMESTAMPTZ,
         moderation_note TEXT
     )
     """,
+    "ALTER TABLE roast_wall ADD COLUMN IF NOT EXISTS target TEXT",
     """
     CREATE TABLE IF NOT EXISTS portfolio_projects (
         id TEXT PRIMARY KEY,
@@ -52,11 +90,15 @@ _SCHEMA_STATEMENTS = [
         stack TEXT NOT NULL DEFAULT '[]',
         repo_url TEXT,
         demo_url TEXT,
+        category TEXT NOT NULL DEFAULT 'Engineering',
+        include_in_resume BOOLEAN NOT NULL DEFAULT TRUE,
         status TEXT NOT NULL DEFAULT 'published',
         created_at TIMESTAMPTZ NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL
     )
     """,
+    "ALTER TABLE portfolio_projects ADD COLUMN IF NOT EXISTS include_in_resume BOOLEAN NOT NULL DEFAULT TRUE",
+    "ALTER TABLE portfolio_projects ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Engineering'",
     """
     CREATE TABLE IF NOT EXISTS project_reactions (
         id BIGSERIAL PRIMARY KEY,
@@ -148,6 +190,7 @@ def _roast_row(row: dict[str, Any]) -> dict[str, Any]:
         "id": str(row["id"]),
         "text": str(row["text"]),
         "advice": row.get("advice"),
+        "target": row.get("target"),
         "status": str(row.get("status", "pending")),
         "created_at": _iso(row.get("created_at")),
         "moderated_at": _iso(row.get("moderated_at")),
@@ -155,11 +198,14 @@ def _roast_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def create_roast(text: str, advice: str | None = None) -> dict[str, Any]:
+def create_roast(
+    text: str, advice: str | None = None, target: str | None = None
+) -> dict[str, Any]:
     roast = {
         "id": uuid.uuid4().hex,
         "text": text,
         "advice": advice,
+        "target": target,
         "status": "pending",
         "created_at": _now(),
         "moderated_at": None,
@@ -172,12 +218,13 @@ def create_roast(text: str, advice: str | None = None) -> dict[str, Any]:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO roast_wall "
-                    "(id, text, advice, status, created_at) "
-                    "VALUES (%s, %s, %s, %s, %s)",
+                    "(id, text, advice, target, status, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
                     (
                         roast["id"],
                         roast["text"],
                         roast["advice"],
+                        roast["target"],
                         roast["status"],
                         roast["created_at"],
                     ),
@@ -195,7 +242,53 @@ def create_roast(text: str, advice: str | None = None) -> dict[str, Any]:
     return dict(roast)
 
 
+def _ensure_seed_roasts() -> None:
+    """Populate the wall with three approved roasts when the store is empty.
+
+    Seeding only runs when there are zero records of any status, so a real
+    submission (pending or rejected) is never shadowed by demo content.
+    """
+    connection = _with_pg_schema()
+    if connection is not None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM roast_wall")
+                count = cursor.fetchone()[0]
+            if count:
+                return
+            for roast in _seed_roasts():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO roast_wall "
+                        "(id, text, advice, target, status, created_at, "
+                        "moderated_at, moderation_note) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (
+                            roast["id"],
+                            roast["text"],
+                            roast["advice"],
+                            roast["target"],
+                            roast["status"],
+                            roast["created_at"],
+                            roast["moderated_at"],
+                            roast["moderation_note"],
+                        ),
+                    )
+            return
+        except Exception as exc:
+            logger.warning("PostgreSQL roast seed failed (%s).", exc)
+        finally:
+            connection.close()
+
+    with _lock:
+        roasts = _load_json_list(ROASTS_FILE, "roasts")
+        if roasts:
+            return
+        _save_json_list(ROASTS_FILE, "roasts", _seed_roasts())
+
+
 def list_roasts(status: str | None = None) -> list[dict[str, Any]]:
+    _ensure_seed_roasts()
     connection = _with_pg_schema()
     if connection is not None:
         try:
@@ -305,6 +398,8 @@ def _project_row(row: dict[str, Any]) -> dict[str, Any]:
         "stack": stack if isinstance(stack, list) else [],
         "repo_url": row.get("repo_url"),
         "demo_url": row.get("demo_url"),
+        "category": row.get("category") or "Engineering",
+        "include_in_resume": bool(row.get("include_in_resume", True)),
         "status": str(row.get("status", "published")),
         "created_at": _iso(row.get("created_at")),
         "updated_at": _iso(row.get("updated_at")),
@@ -355,17 +450,21 @@ def create_custom_project(
     stack: list[str],
     repo_url: str | None,
     demo_url: str | None,
+    category: str = "Engineering",
+    include_in_resume: bool = True,
 ) -> dict[str, Any]:
     now = _now()
     project = {
         "id": uuid.uuid4().hex,
         "title": title,
+        "category": category,
         "problem": problem,
         "build": build,
         "outcome": outcome,
         "stack": stack,
         "repo_url": repo_url,
         "demo_url": demo_url,
+        "include_in_resume": include_in_resume,
         "status": "published",
         "created_at": now,
         "updated_at": now,
@@ -378,18 +477,20 @@ def create_custom_project(
             with connection.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO portfolio_projects "
-                    "(id, title, problem, build, outcome, stack, repo_url, "
-                    "demo_url, status, created_at, updated_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "(id, title, category, problem, build, outcome, stack, repo_url, "
+                    "demo_url, include_in_resume, status, created_at, updated_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         project["id"],
                         project["title"],
+                        project["category"],
                         project["problem"],
                         project["build"],
                         project["outcome"],
                         json.dumps(stack),
                         repo_url,
                         demo_url,
+                        project["include_in_resume"],
                         project["status"],
                         now,
                         now,
@@ -409,7 +510,17 @@ def create_custom_project(
 
 
 def update_custom_project(project_id: str, **changes: Any) -> dict[str, Any]:
-    allowed = {"title", "problem", "build", "outcome", "stack", "repo_url", "demo_url"}
+    allowed = {
+        "title",
+        "category",
+        "problem",
+        "build",
+        "outcome",
+        "stack",
+        "repo_url",
+        "demo_url",
+        "include_in_resume",
+    }
     updates = {key: value for key, value in changes.items() if key in allowed}
     if not updates:
         return _get_custom_project(project_id)

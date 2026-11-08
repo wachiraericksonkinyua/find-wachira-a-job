@@ -12,6 +12,7 @@ backend/app/roast_wall.json
 backend/app/custom_projects.json
 backend/app/project_reactions.json
 backend/app/admin_logs.json
+backend/app/resume_override.json
 
 # React & Frontend
 node_modules/

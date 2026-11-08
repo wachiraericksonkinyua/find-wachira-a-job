@@ -9,12 +9,28 @@ const loading = ref(true)
 const error = ref(null)
 const selectedProject = ref(null)
 const deckIndex = ref(0)
+const viewMode = ref('swipe')
 const reactionError = ref(null)
-let touchStartX = 0
-
 const monkeyStates = ref({})
 
+const roastOpen = ref(false)
+const roastDraft = ref('')
+const roastBusy = ref(false)
+const roastMessage = ref(null)
+const roastError = ref(null)
+let touchStartX = 0
+
+const COMEBACKS = [
+  'Ugali the Monkey ate that roast and asked for seconds. Noted, anonymous human.',
+  'Ugali says: bold words from someone who has never debugged a printer at 2 AM.',
+  'Ugali reviewed your roast, sighed, and added it to the moderation queue anyway.',
+  'Ugali says fair point, then went back to judging your browser tabs.',
+]
+
 const currentProject = computed(() => projects.value[deckIndex.value] || null)
+const deckProgress = computed(() =>
+  projects.value.length ? `${deckIndex.value + 1} / ${projects.value.length}` : '0 / 0'
+)
 
 onMounted(async () => {
   try {
@@ -47,11 +63,20 @@ function closeProject() {
 function nextProject() {
   if (!projects.value.length) return
   deckIndex.value = (deckIndex.value + 1) % projects.value.length
+  resetRoast()
 }
 
 function previousProject() {
   if (!projects.value.length) return
   deckIndex.value = (deckIndex.value - 1 + projects.value.length) % projects.value.length
+  resetRoast()
+}
+
+function resetRoast() {
+  roastOpen.value = false
+  roastDraft.value = ''
+  roastMessage.value = null
+  roastError.value = null
 }
 
 function onTouchStart(event) {
@@ -69,7 +94,7 @@ function onTouchEnd(event) {
 async function reactToProject(project, reaction) {
   reactionError.value = null
   try {
-    const response = await fetch(`${API_URL}/api/projects/${project.id}/reactions`, {
+    const response = await fetch(`${API_URL}/api/projects/${project.id}/react`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reaction }),
@@ -79,8 +104,57 @@ async function reactToProject(project, reaction) {
       throw new Error(data?.detail || `Reaction failed (HTTP ${response.status}).`)
     }
     project.reactions = data
+    if (reaction === 'heart' && viewMode.value === 'swipe') nextProject()
   } catch (err) {
     reactionError.value = err.message || 'Could not save that reaction.'
+  }
+}
+
+function openRoastForm() {
+  selectedProject.value = null
+  roastOpen.value = true
+  roastMessage.value = null
+  roastError.value = null
+}
+
+async function submitRoast() {
+  if (!currentProject.value || roastBusy.value) return
+  if (roastDraft.value.trim().length < 5) {
+    roastError.value = 'Give the monkey at least 5 characters.'
+    return
+  }
+
+  roastBusy.value = true
+  roastError.value = null
+  try {
+    const response = await fetch(`${API_URL}/api/roast-wall`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: roastDraft.value.trim(),
+        target: currentProject.value.category || currentProject.value.title,
+      }),
+    })
+    const data = await response.json().catch(() => null)
+    if (!response.ok) {
+      const detail = data?.detail
+      throw new Error(
+        Array.isArray(detail)
+          ? detail.map((item) => item?.msg).filter(Boolean).join('; ')
+          : detail || `Roast failed (HTTP ${response.status}).`
+      )
+    }
+    roastMessage.value =
+      COMEBACKS[Math.floor(Math.random() * COMEBACKS.length)] ||
+      'Ugali the Monkey added it to the moderation queue.'
+    roastDraft.value = ''
+    window.setTimeout(() => {
+      nextProject()
+    }, 900)
+  } catch (err) {
+    roastError.value = err.message || 'The roast could not be submitted.'
+  } finally {
+    roastBusy.value = false
   }
 }
 
@@ -98,83 +172,144 @@ function askMonkey(project) {
     <p v-else-if="error" role="alert" class="font-mono-tech text-xs text-[#FF4D8D]">{{ error }}</p>
 
     <template v-else>
-      <!-- Swipe deck -->
-      <div v-if="currentProject" class="panel p-5 md:p-7 mb-8">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <p class="page-kicker text-[#19E3FF]">SWIPE DECK</p>
-            <h2 class="font-orbitron text-xl font-bold">PROJECT CASE STUDIES</h2>
-          </div>
-          <span class="font-mono-tech text-[10px] text-[#8FA6C8]">
-            {{ deckIndex + 1 }} / {{ projects.length }}
-          </span>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="page-kicker text-[#19E3FF]">CASE STUDIES</p>
+          <h2 class="font-orbitron text-2xl font-bold">
+            {{ viewMode === 'swipe' ? 'SWIPE DECK' : 'PROJECT GRID' }}
+          </h2>
         </div>
+        <div class="flex items-center gap-2" role="group" aria-label="View mode">
+          <button
+            type="button"
+            class="nav-link"
+            :class="{ 'nav-link-active': viewMode === 'swipe' }"
+            @click="viewMode = 'swipe'"
+          >
+            SWIPE MODE
+          </button>
+          <button
+            type="button"
+            class="nav-link"
+            :class="{ 'nav-link-active': viewMode === 'grid' }"
+            @click="viewMode = 'grid'"
+          >
+            GRID MODE
+          </button>
+          <span class="font-mono-tech text-[10px] text-[#8FA6C8]">{{ deckProgress }}</span>
+        </div>
+      </div>
 
+      <!-- Swipe deck -->
+      <div v-if="viewMode === 'swipe' && currentProject" class="panel p-5 md:p-7 mb-8">
         <div
-          class="border border-[#22345E] bg-[#050914] p-5"
+          class="swipe-card relative border border-[#22345E] bg-[#050914] p-5 md:p-6"
           tabindex="0"
+          role="button"
+          :aria-label="`Open case study for ${currentProject.title}`"
+          @click="openProject(currentProject)"
           @keydown.left.prevent="previousProject"
           @keydown.right.prevent="nextProject"
+          @keydown.enter.prevent="openProject(currentProject)"
           @touchstart.passive="onTouchStart"
           @touchend.passive="onTouchEnd"
         >
-          <h3 class="font-orbitron text-2xl md:text-3xl font-bold">{{ currentProject.title }}</h3>
-          <div class="flex flex-wrap gap-2 mt-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="border border-[#19E3FF]/50 bg-[#0D2230] px-2 py-0.5 font-mono-tech text-[9px] text-[#19E3FF]">
+              {{ currentProject.category || 'ENGINEERING' }}
+            </span>
+            <span class="font-mono-tech text-[10px] text-[#8FA6C8]">{{ deckProgress }}</span>
+          </div>
+
+          <h3 class="mt-4 font-orbitron text-2xl font-bold md:text-3xl">
+            {{ currentProject.title }}
+          </h3>
+          <div class="mt-3 flex flex-wrap gap-2">
             <span
               v-for="tech in currentProject.stack"
               :key="tech"
-              class="px-2 py-0.5 border border-[#22345E] bg-[#0A0F1F] font-mono-tech text-[10px] text-[#19E3FF]"
+              class="border border-[#22345E] bg-[#0A0F1F] px-2 py-0.5 font-mono-tech text-[10px] text-[#19E3FF]"
             >
               {{ tech }}
             </span>
           </div>
-          <p class="text-sm text-[#A9BCD9] leading-relaxed mt-4 max-w-3xl">
+          <p class="mt-4 max-w-3xl text-sm leading-relaxed text-[#A9BCD9]">
             {{ currentProject.problem }}
           </p>
 
-          <div class="flex flex-wrap items-center gap-2 mt-5">
+          <div v-if="roastOpen" class="mt-5 border border-[#FF4D8D]/40 bg-[#150A12] p-4" @click.stop>
+            <p class="font-mono-tech text-[10px] text-[#FF4D8D]">
+              🔥 DROP A QUICK ROAST ON THIS SKILL/PROJECT
+            </p>
+            <form class="mt-3 grid gap-2" @submit.prevent="submitRoast">
+              <textarea
+                v-model="roastDraft"
+                rows="2"
+                maxlength="280"
+                required
+                minlength="5"
+                class="input-tech w-full resize-y"
+                placeholder="Be honest. Ugali is listening."
+                :disabled="roastBusy"
+              />
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="submit" class="btn-primary-small" :disabled="roastBusy">
+                  {{ roastBusy ? 'SENDING...' : 'SEND ROAST' }}
+                </button>
+                <button type="button" class="btn-ghost" @click="resetRoast">CANCEL</button>
+                <span class="font-mono-tech text-[9px] text-[#8FA6C8]">
+                  {{ roastDraft.length }}/280 · target: {{ currentProject.category }}
+                </span>
+              </div>
+              <p v-if="roastMessage" role="status" aria-live="polite" class="font-mono-tech text-[10px] text-[#3DF5A6]">
+                {{ roastMessage }}
+              </p>
+              <p v-if="roastError" role="alert" class="font-mono-tech text-[10px] text-[#FF4D8D]">
+                {{ roastError }}
+              </p>
+            </form>
+          </div>
+
+          <div v-else class="mt-5 flex flex-wrap items-center gap-2">
             <button
               type="button"
               class="btn-primary"
+              :aria-label="`Heart ${currentProject.title}`"
               @click.stop="reactToProject(currentProject, 'heart')"
             >
-              ♥ {{ currentProject.reactions?.heart || 0 }}
+              ♥ HEART {{ currentProject.reactions?.heart || 0 }}
             </button>
             <button
               type="button"
               class="btn-ghost"
-              @click.stop="reactToProject(currentProject, 'roast')"
+              :aria-label="`Roast ${currentProject.title}`"
+              @click.stop="openRoastForm"
             >
-              🔥 {{ currentProject.reactions?.roast || 0 }}
+              🔥 ROAST IT
             </button>
-            <button type="button" class="btn-secondary" @click="openProject(currentProject)">
+            <button type="button" class="btn-secondary" @click.stop="openProject(currentProject)">
               OPEN CASE STUDY
             </button>
-            <span class="flex gap-2 ml-auto">
-              <button type="button" class="btn-secondary" @click="previousProject">←</button>
-              <button type="button" class="btn-secondary" @click="nextProject">→</button>
+            <span class="ml-auto flex gap-2">
+              <button type="button" class="btn-secondary" @click.stop="previousProject">←</button>
+              <button type="button" class="btn-secondary" @click.stop="nextProject">→</button>
             </span>
           </div>
           <p v-if="reactionError" role="alert" class="mt-3 font-mono-tech text-[10px] text-[#FF4D8D]">
             {{ reactionError }}
           </p>
+          <p class="mt-3 font-mono-tech text-[9px] text-[#8FA6C8]">
+            Swipe or use arrow keys · click the card for the deep dive
+          </p>
         </div>
       </div>
 
       <!-- Grid -->
-      <div class="flex items-end justify-between gap-3 mb-4">
-        <div>
-          <p class="page-kicker text-[#3DF5A6]">ALL BUILDS</p>
-          <h2 class="font-orbitron text-2xl font-bold">PROJECT GRID</h2>
-        </div>
-        <span class="font-mono-tech text-[10px] text-[#8FA6C8]">{{ projects.length }} projects</span>
-      </div>
-
-      <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         <article
           v-for="project in projects"
           :key="project.id"
-          class="panel p-5 flex flex-col cursor-pointer hover:border-[#19E3FF]/70 transition-colors"
+          class="panel flex flex-col p-5 transition-colors hover:border-[#19E3FF]/70"
           tabindex="0"
           role="button"
           :aria-label="`Open case study for ${project.title}`"
@@ -182,24 +317,27 @@ function askMonkey(project) {
           @keydown.enter.prevent="openProject(project)"
           @keydown.space.prevent="openProject(project)"
         >
-          <h3 class="font-orbitron text-lg font-bold">{{ project.title }}</h3>
-          <div class="flex flex-wrap gap-1.5 mt-2">
+          <span class="w-fit border border-[#19E3FF]/40 px-1.5 py-0.5 font-mono-tech text-[9px] text-[#19E3FF]">
+            {{ project.category || 'ENGINEERING' }}
+          </span>
+          <h3 class="mt-2 font-orbitron text-lg font-bold">{{ project.title }}</h3>
+          <div class="mt-2 flex flex-wrap gap-1.5">
             <span
               v-for="tech in project.stack.slice(0, 4)"
               :key="tech"
-              class="px-1.5 py-0.5 border border-[#22345E] font-mono-tech text-[9px] text-[#19E3FF]"
+              class="border border-[#22345E] px-1.5 py-0.5 font-mono-tech text-[9px] text-[#19E3FF]"
             >
               {{ tech }}
             </span>
           </div>
-          <p class="text-xs text-[#A9BCD9] leading-relaxed mt-3 line-clamp-3 flex-grow">
+          <p class="mt-3 flex-grow text-xs leading-relaxed text-[#A9BCD9] line-clamp-3">
             {{ project.problem }}
           </p>
-          <div class="flex items-center justify-between gap-2 mt-4">
+          <div class="mt-4 flex items-center justify-between gap-2">
             <div class="flex gap-1">
               <button
                 type="button"
-                class="px-2 py-1 border border-[#3DF5A6]/50 font-mono-tech text-[10px] text-[#3DF5A6] hover:bg-[#0D2A24]"
+                class="border border-[#3DF5A6]/50 px-2 py-1 font-mono-tech text-[10px] text-[#3DF5A6] hover:bg-[#0D2A24]"
                 :aria-label="`Heart ${project.title}`"
                 @click.stop="reactToProject(project, 'heart')"
               >
@@ -207,11 +345,11 @@ function askMonkey(project) {
               </button>
               <button
                 type="button"
-                class="px-2 py-1 border border-[#FF4D8D]/50 font-mono-tech text-[10px] text-[#FF4D8D] hover:bg-[#2A1220]"
+                class="border border-[#FF4D8D]/50 px-2 py-1 font-mono-tech text-[10px] text-[#FF4D8D] hover:bg-[#2A1220]"
                 :aria-label="`Roast ${project.title}`"
-                @click.stop="reactToProject(project, 'roast')"
+                @click.stop="openProject(project)"
               >
-                🔥 {{ project.reactions?.roast || 0 }}
+                🔥 ROAST
               </button>
             </div>
             <span class="font-mono-tech text-[10px] text-[#19E3FF]">OPEN →</span>
@@ -220,7 +358,7 @@ function askMonkey(project) {
       </div>
     </template>
 
-    <!-- Immersive detail modal -->
+    <!-- Detail modal -->
     <div
       v-if="selectedProject"
       class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 pt-10"
@@ -235,54 +373,54 @@ function askMonkey(project) {
       >
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="page-kicker text-[#19E3FF]">CASE STUDY</p>
-            <h2 id="project-modal-title" class="font-orbitron text-2xl md:text-3xl font-bold">
+            <p class="page-kicker text-[#19E3FF]">CASE STUDY · {{ selectedProject.category }}</p>
+            <h2 id="project-modal-title" class="font-orbitron text-2xl font-bold md:text-3xl">
               {{ selectedProject.title }}
             </h2>
           </div>
           <button type="button" class="btn-secondary" @click="closeProject">CLOSE</button>
         </div>
 
-        <div class="flex flex-wrap gap-2 mt-3">
+        <div class="mt-3 flex flex-wrap gap-2">
           <span
             v-for="tech in selectedProject.stack"
             :key="tech"
-            class="px-2 py-0.5 border border-[#22345E] bg-[#0A0F1F] font-mono-tech text-[10px] text-[#19E3FF]"
+            class="border border-[#22345E] bg-[#0A0F1F] px-2 py-0.5 font-mono-tech text-[10px] text-[#19E3FF]"
           >
             {{ tech }}
           </span>
         </div>
 
-        <div class="grid gap-4 mt-5">
+        <div class="mt-5 grid gap-4">
           <section>
-            <h3 class="font-pixel text-[10px] text-[#FFC857] mb-1">PROBLEM</h3>
-            <p class="text-sm text-[#D7E4F8] leading-relaxed">{{ selectedProject.problem }}</p>
+            <h3 class="mb-1 font-pixel text-[10px] text-[#FFC857]">PROBLEM</h3>
+            <p class="text-sm leading-relaxed text-[#D7E4F8]">{{ selectedProject.problem }}</p>
           </section>
           <section>
-            <h3 class="font-pixel text-[10px] text-[#3DF5A6] mb-1">BUILD</h3>
-            <p class="text-sm text-[#D7E4F8] leading-relaxed">{{ selectedProject.build }}</p>
+            <h3 class="mb-1 font-pixel text-[10px] text-[#3DF5A6]">BUILD</h3>
+            <p class="text-sm leading-relaxed text-[#D7E4F8]">{{ selectedProject.build }}</p>
           </section>
           <section>
-            <h3 class="font-pixel text-[10px] text-[#19E3FF] mb-1">OUTCOME</h3>
-            <p class="text-sm text-[#D7E4F8] leading-relaxed">{{ selectedProject.outcome }}</p>
+            <h3 class="mb-1 font-pixel text-[10px] text-[#19E3FF]">OUTCOME</h3>
+            <p class="text-sm leading-relaxed text-[#D7E4F8]">{{ selectedProject.outcome }}</p>
           </section>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 mt-5">
+        <div class="mt-5 flex flex-wrap items-center gap-2">
           <button type="button" class="btn-primary" @click="reactToProject(selectedProject, 'heart')">
             ♥ HEART {{ selectedProject.reactions?.heart || 0 }}
           </button>
-          <button type="button" class="btn-ghost" @click="reactToProject(selectedProject, 'roast')">
-            🔥 ROAST {{ selectedProject.reactions?.roast || 0 }}
+          <button type="button" class="btn-ghost" @click="openRoastForm">
+            🔥 ROAST IT
           </button>
           <a
-            v-if="selectedProject.demo_url"
-            :href="selectedProject.demo_url"
+            v-if="selectedProject.demo_url || selectedProject.live_url"
+            :href="selectedProject.demo_url || selectedProject.live_url"
             target="_blank"
             rel="noopener noreferrer"
             class="btn-secondary"
           >
-            VERIFY LIVE ↗
+            LIVE ↗
           </a>
           <a
             v-if="selectedProject.repo_url"
@@ -291,10 +429,10 @@ function askMonkey(project) {
             rel="noopener noreferrer"
             class="btn-secondary"
           >
-            VIEW SOURCE ↗
+            GITHUB ↗
           </a>
           <span
-            v-if="!selectedProject.demo_url && !selectedProject.repo_url"
+            v-if="!selectedProject.demo_url && !selectedProject.live_url && !selectedProject.repo_url"
             class="font-mono-tech text-[10px] text-[#8FA6C8]"
           >
             Verification link not added yet.

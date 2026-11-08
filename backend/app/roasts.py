@@ -33,8 +33,15 @@ class RoastSubmission(BaseModel):
         ]
         | None
     ) = None
+    target: (
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, max_length=80),
+        ]
+        | None
+    ) = None
 
-    @field_validator("text", "advice", mode="before")
+    @field_validator("text", "advice", "target", mode="before")
     @classmethod
     def clean_text(cls, value: Any) -> Any:
         return _clean(value)
@@ -47,11 +54,11 @@ class RoastModeration(BaseModel):
 
 
 def submit_roast(payload: RoastSubmission) -> dict[str, Any]:
-    roast = content_store.create_roast(payload.text, payload.advice)
+    roast = content_store.create_roast(payload.text, payload.advice, payload.target)
     return {
         "id": roast["id"],
         "status": roast["status"],
-        "message": "Queued for anonymous moderation. No identity is stored.",
+        "message": "Sent to the moderation queue! Once Erickson approves it, it goes live on the wall.",
     }
 
 
@@ -59,6 +66,8 @@ def public_roasts() -> list[dict[str, Any]]:
     return [
         {
             "id": roast["id"],
+            "author": "@anonymous_dev",
+            "target": roast.get("target"),
             "text": roast["text"],
             "advice": roast["advice"],
             "created_at": roast["created_at"],
