@@ -404,6 +404,41 @@ Structured notes live in [`study-vault/modules/05_redis_caching_and_keepalive.md
 
 ---
 
+## Day 47 — Multi-Page Routing, Swipe Deck, Roast Wall & Owner Admin
+
+Official reading (verified 2026-11-08):
+
+- [Vue Router guide](https://router.vuejs.org/guide/)
+- [Vue Router navigation](https://router.vuejs.org/guide/essentials/navigation.html)
+- [Vue Router dynamic matching](https://router.vuejs.org/guide/essentials/dynamic-matching.html)
+- [Vue component basics](https://vuejs.org/guide/essentials/component-basics.html)
+- [Vue event handling](https://vuejs.org/guide/essentials/event-handling.html)
+- [Vue form input bindings](https://vuejs.org/guide/essentials/forms.html)
+- [Vue accessibility best practices](https://vuejs.org/guide/best-practices/accessibility.html)
+- [Vitest guide](https://vitest.dev/guide/)
+- [Vue Test Utils guide](https://test-utils.vuejs.org/guide/)
+- [FastAPI header parameters](https://fastapi.tiangolo.com/tutorial/header-params/)
+- [Pydantic validators](https://docs.pydantic.dev/latest/concepts/validators/)
+- [PostgreSQL `ALTER TABLE`](https://www.postgresql.org/docs/current/sql-altertable.html)
+- [PostgreSQL: altering a table](https://www.postgresql.org/docs/current/ddl-alter.html)
+- [fpdf2 documentation](https://py-pdf.github.io/fpdf2/)
+- [fpdf2 tutorial](https://py-pdf.github.io/fpdf2/Tutorial.html)
+- [Python `tempfile`](https://docs.python.org/3/library/tempfile.html)
+- [Python `os.replace`](https://docs.python.org/3/library/os.html#os.replace)
+- [MDN Touch events](https://developer.mozilla.org/en-US/docs/Web/API/Touch_events)
+- [WAI-ARIA modal dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+- [MDN ARIA `dialog` role](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/dialog_role)
+
+**Practice:** trace one ♥ click from `Projects.vue` to
+`POST /api/projects/{id}/react` and back. Then submit a roast, confirm it is
+hidden from `GET /api/roast-wall`, approve it as admin, and confirm the public
+card shows `@anonymous_dev` plus the target tag. Finally add a project with
+`include_in_resume=True` and verify the downloaded PDF contains its title.
+
+Structured notes live in [`study-vault/modules/06_routing_swipe_roast_admin.md`](study-vault/modules/06_routing_swipe_roast_admin.md).
+
+---
+
 ## Suggested Study Order
 
 1. **Week 1:** Days 16–20 links. Re-run `pytest`, inspect the CI workflow, and
@@ -414,6 +449,8 @@ Structured notes live in [`study-vault/modules/05_redis_caching_and_keepalive.md
    and the reduced-motion setting.
 4. **Week 4:** SSRF and indirect injection. Build the small URL-analyzer demo and
    try to break it yourself.
+5. **Week 5:** Multi-page routing, swipe interactions, moderation, and the owner
+   dashboard. Trace one heart, one roast, and one resume edit end to end.
 
 ## Quick Reference: Interview One-Liners
 

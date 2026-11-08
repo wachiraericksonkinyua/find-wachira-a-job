@@ -1,4 +1,4 @@
-# Study Vault — Days 16–44
+# Study Vault — Days 16–47
 
 **Why “study-vault”?** It is short, memorable, and easy to find again with a
 single search: `study-vault`. Everything study-related lives here instead of
@@ -14,7 +14,8 @@ study-vault/
 │   ├── 02_llm_security_owasp.md
 │   ├── 03_ssrf_and_network_security.md
 │   ├── 04_frontend_a11y_and_moderation.md
-│   └── 05_redis_caching_and_keepalive.md
+│   ├── 05_redis_caching_and_keepalive.md
+│   └── 06_routing_swipe_roast_admin.md
 └── verification/
     ├── verify_setup.py          ← runs backend/frontend tests + security checks
     └── check_links.sh           ← re-checks every official documentation link
@@ -40,9 +41,9 @@ To re-check the documentation links:
 bash study-vault/verification/check_links.sh
 ```
 
-## Link verification — 2026-11-07
+## Link verification — 2026-11-08
 
-All links below were checked with `curl -L` on **2026-11-07**.
+All links below were checked with `curl -L` on **2026-11-08**.
 
 | Module | Link | Status |
 | --- | --- | --- |
@@ -81,6 +82,26 @@ All links below were checked with `curl -L` on **2026-11-07**.
 | Operations | [cron-job.org](https://cron-job.org/en/) | ✅ 200 |
 | Operations | [Better Stack Uptime](https://betterstack.com/uptime) | ✅ 200 |
 | Operations | [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/) | ✅ 200 |
+| Routing | [Vue Router guide](https://router.vuejs.org/guide/) | ✅ 200 |
+| Routing | [Vue Router navigation](https://router.vuejs.org/guide/essentials/navigation.html) | ✅ 200 |
+| Routing | [Vue Router dynamic matching](https://router.vuejs.org/guide/essentials/dynamic-matching.html) | ✅ 200 |
+| Vue | [Component basics](https://vuejs.org/guide/essentials/component-basics.html) | ✅ 200 |
+| Vue | [Event handling](https://vuejs.org/guide/essentials/event-handling.html) | ✅ 200 |
+| Vue | [Form input bindings](https://vuejs.org/guide/essentials/forms.html) | ✅ 200 |
+| Vue | [Accessibility best practices](https://vuejs.org/guide/best-practices/accessibility.html) | ✅ 200 |
+| Testing | [Vitest guide](https://vitest.dev/guide/) | ✅ 200 |
+| Testing | [Vue Test Utils guide](https://test-utils.vuejs.org/guide/) | ✅ 200 |
+| FastAPI | [Header parameters](https://fastapi.tiangolo.com/tutorial/header-params/) | ✅ 200 |
+| Pydantic | [Validators](https://docs.pydantic.dev/latest/concepts/validators/) | ✅ 200 |
+| PostgreSQL | [`ALTER TABLE`](https://www.postgresql.org/docs/current/sql-altertable.html) | ✅ 200 |
+| PostgreSQL | [Altering a table](https://www.postgresql.org/docs/current/ddl-alter.html) | ✅ 200 |
+| Persistence | [Python `tempfile`](https://docs.python.org/3/library/tempfile.html) | ✅ 200 |
+| Persistence | [Python `os.replace`](https://docs.python.org/3/library/os.html#os.replace) | ✅ 200 |
+| PDF | [fpdf2 documentation](https://py-pdf.github.io/fpdf2/) | ✅ 200 |
+| PDF | [fpdf2 tutorial](https://py-pdf.github.io/fpdf2/Tutorial.html) | ✅ 200 |
+| Frontend | [MDN Touch events](https://developer.mozilla.org/en-US/docs/Web/API/Touch_events) | ✅ 200 |
+| Accessibility | [WAI-ARIA modal dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) | ✅ 200 |
+| Accessibility | [MDN ARIA `dialog` role](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/dialog_role) | ✅ 200 |
 
 ### Correction
 
@@ -97,5 +118,5 @@ Use the root URL in notes and future slides.
 ## Related repository documents
 
 - [`../LEARNING_RESOURCES.md`](../LEARNING_RESOURCES.md) — full narrative study guide
-- [`../LOG.md`](../LOG.md) — implementation history through Day 44
+- [`../LOG.md`](../LOG.md) — implementation history through Day 47
 - [`../THREAT_MODEL.md`](../THREAT_MODEL.md) — OWASP LLM Top 10 mapping

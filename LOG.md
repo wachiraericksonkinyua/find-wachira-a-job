@@ -380,3 +380,4 @@
 - Added `backend/tests/test_admin_wall_swipe.py` covering pending-roast invisibility until approval, `include_in_resume=True` project data in a valid `%PDF` response, resume overlay edits, and unauthorized admin rejection.
 - Added Vitest coverage for the swipe deck (`tests/components/SwipeDeck.test.js`) and the Roast Wall (`tests/components/RoastWall.test.js`), and updated the dashboard spec for the new tabs.
 - Verified `pytest -q` (**48 passed**), `npm test -- --run` (**95 passed**), and `npm run build`.
+- Added `study-vault/modules/06_routing_swipe_roast_admin.md` with official Vue Router, Vue 3, Vitest, FastAPI, Pydantic, PostgreSQL, fpdf2, touch, and ARIA resources; updated the study-vault link checker and `LEARNING_RESOURCES.md` (56 links, all reachable).
